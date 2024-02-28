@@ -1,6 +1,5 @@
 //! A blockchain-agnostic Rust Coinselection library
 
-
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
 /// The library user is responsible for crafting this structure correctly. Incorrect representation of this
@@ -21,7 +20,7 @@ pub struct OutputGroup {
     /// selection is not required.
     /// Sequqence numbers are arbitrary index only to denote relative age of utxo group among a set of groups.
     /// To denote the oldest utxo group, give them a sequence number of Some(0).
-    pub creation_sequqence: Option<u32>
+    pub creation_sequqence: Option<u32>,
 }
 
 /// A set of Options that guides the CoinSelection algorithms. These are inputs specified by the
@@ -59,8 +58,8 @@ pub enum ExcessStrategy {
 
 /// Error Describing failure of a selection attempt.
 #[derive(Debug)]
-pub enum SelectionError{
-    SomethingWentWrong
+pub enum SelectionError {
+    SomethingWentWrong,
 }
 
 /// Calculated waste for a specific selection.
@@ -69,43 +68,63 @@ pub enum SelectionError{
 #[derive(Debug)]
 pub struct WasteMetric(u64);
 
-
 /// Perform Coinselection via Branch And Bound algorithm.
 /// Return None, if no solution exists.
-pub fn select_coin_bnb(inputs: Vec<OutputGroup>, opitons: CoinSelectionOpt, excess_strategy: ExcessStrategy) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+pub fn select_coin_bnb(
+    inputs: Vec<OutputGroup>,
+    opitons: CoinSelectionOpt,
+    excess_strategy: ExcessStrategy,
+) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
     unimplemented!()
 }
 
 /// Perform Coinselection via Knapsack solver.
 /// Return None, if no solution exists.
-pub fn select_coin_knapsack(inputs: Vec<OutputGroup>, opitons: CoinSelectionOpt, excess_strategy: ExcessStrategy) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+pub fn select_coin_knapsack(
+    inputs: Vec<OutputGroup>,
+    opitons: CoinSelectionOpt,
+    excess_strategy: ExcessStrategy,
+) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
     unimplemented!()
 }
-
 
 /// Perform Coinselection via Lowest Larger algorithm.
 /// Return None, if no solution exists.
-pub fn select_coin_lowestlarger(inputs: Vec<OutputGroup>, opitons: CoinSelectionOpt, excess_strategy: ExcessStrategy) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+pub fn select_coin_lowestlarger(
+    inputs: Vec<OutputGroup>,
+    opitons: CoinSelectionOpt,
+    excess_strategy: ExcessStrategy,
+) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
     unimplemented!()
 }
 
-
 /// Perform Coinselection via First-In-First-Out algorithm.
 /// Return None, if no solution exists.
-pub fn select_coin_fifo(inputs: Vec<OutputGroup>, opitons: CoinSelectionOpt, excess_strategy: ExcessStrategy) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+pub fn select_coin_fifo(
+    inputs: Vec<OutputGroup>,
+    opitons: CoinSelectionOpt,
+    excess_strategy: ExcessStrategy,
+) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
     unimplemented!()
 }
 
 /// Perform Coinselection via Single Random Draw.
 /// Return None, if no solution exists.
-pub fn select_coin_srd(inputs: Vec<OutputGroup>, opitons: CoinSelectionOpt, excess_strategy: ExcessStrategy) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+pub fn select_coin_srd(
+    inputs: Vec<OutputGroup>,
+    opitons: CoinSelectionOpt,
+    excess_strategy: ExcessStrategy,
+) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
     unimplemented!()
 }
 
-
 /// The Global Coinselection API that performs all the algorithms and proudeces result with least [WasteMetric].
 /// At least one selection solution should be found.
-pub fn select_coin_(inputs: Vec<OutputGroup>, opitons: CoinSelectionOpt, excess_strategy: ExcessStrategy) -> Result<(Vec<u32>, WasteMetric), SelectionError> {
+pub fn select_coin_(
+    inputs: Vec<OutputGroup>,
+    opitons: CoinSelectionOpt,
+    excess_strategy: ExcessStrategy,
+) -> Result<(Vec<u32>, WasteMetric), SelectionError> {
     unimplemented!()
 }
 
