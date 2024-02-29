@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 //! A blockchain-agnostic Rust Coinselection library
 
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
@@ -56,10 +58,11 @@ pub enum ExcessStrategy {
     ToDrain,
 }
 
-/// Error Describing failure of a selection attempt.
+/// Error Describing failure of a selection attempt, on any subset of inputs
 #[derive(Debug)]
 pub enum SelectionError {
-    SomethingWentWrong,
+    InsufficientFunds,
+    NoSolutionFound,
 }
 
 /// Calculated waste for a specific selection.
@@ -68,63 +71,69 @@ pub enum SelectionError {
 #[derive(Debug)]
 pub struct WasteMetric(u64);
 
+/// The result of selection algorithm
+pub struct SelectionOutput {
+    /// The selected inputs
+    pub selected_inputs: Vec<u32>,
+    /// The waste amount, for the above inputs
+    pub waste: WasteMetric,
+}
+
 /// Perform Coinselection via Branch And Bound algorithm.
-/// Return None, if no solution exists.
 pub fn select_coin_bnb(
     inputs: Vec<OutputGroup>,
     opitons: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
 
 /// Perform Coinselection via Knapsack solver.
-/// Return None, if no solution exists.
 pub fn select_coin_knapsack(
     inputs: Vec<OutputGroup>,
     opitons: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
 
 /// Perform Coinselection via Lowest Larger algorithm.
-/// Return None, if no solution exists.
+/// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_lowestlarger(
     inputs: Vec<OutputGroup>,
     opitons: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
 
 /// Perform Coinselection via First-In-First-Out algorithm.
-/// Return None, if no solution exists.
+/// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_fifo(
     inputs: Vec<OutputGroup>,
     opitons: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
 
 /// Perform Coinselection via Single Random Draw.
-/// Return None, if no solution exists.
+/// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_srd(
     inputs: Vec<OutputGroup>,
     opitons: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
 
 /// The Global Coinselection API that performs all the algorithms and proudeces result with least [WasteMetric].
 /// At least one selection solution should be found.
-pub fn select_coin_(
+pub fn select_coin(
     inputs: Vec<OutputGroup>,
     opitons: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<(Vec<u32>, WasteMetric), SelectionError> {
+) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
 
