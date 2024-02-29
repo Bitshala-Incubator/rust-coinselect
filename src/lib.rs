@@ -54,11 +54,11 @@ pub enum ExcessStrategy {
     ToDrain,
 }
 
-/// Error Describing failure of a selection attempt.
+/// Error Describing failure of a selection attempt, on any subset of inputs
 #[derive(Debug)]
 pub enum SelectionError {
-    SomethingWentWrong,
-    SufficientInputsNotFound
+    InsufficientFunds,
+    NoSolutionFound,
 }
 
 /// Calculated waste for a specific selection.
@@ -67,23 +67,29 @@ pub enum SelectionError {
 #[derive(Debug)]
 pub struct WasteMetric(u64);
 
+/// The result of selection algorithm
+pub struct SelectionOutput {
+    /// The selected inputs
+    pub selected_inputs: Vec<u32>,
+    /// The waste amount, for the above inputs
+    pub waste: WasteMetric,
+}
+
 /// Perform Coinselection via Branch And Bound algorithm.
-/// Return None, if no solution exists.
 pub fn select_coin_bnb(
     inputs: Vec<OutputGroup>,
     opitons: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
 
 /// Perform Coinselection via Knapsack solver.
-/// Return None, if no solution exists.
 pub fn select_coin_knapsack(
     inputs: Vec<OutputGroup>,
     opitons: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
 
@@ -93,7 +99,7 @@ pub fn select_coin_lowestlarger(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
 
@@ -104,38 +110,8 @@ pub fn select_coin_fifo(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<Option<(Vec<u64>, WasteMetric)>, SelectionError> { /* Using the value of the input as an identifier for the selected inputs, as the index of the vec<outputgroup> can't be used because the vector itself is sorted first. Ideally, txid of the input can serve as an unique identifier */
-    let mut totalvalue: u64 = 0;
-    let mut totalweight: u32 = 0;
-    let mut selectedinputs: Vec<u64> = Vec::new();
-    
-    // Sorting the inputs vector based on creation_sequence
-    
-    let mut sortedinputs = inputs.clone();
-    sortedinputs.sort_by_key(|a| a.creation_sequence);
-    for input in sortedinputs.iter(){
-        if totalvalue >= (options.target_value + (options.target_feerate*totalweight as f32).ceil() as u64){
-            break;
-        }
-        totalvalue += input.value;
-        totalweight += input.weight;
-        selectedinputs.push(input.value);
-
-    }
-    let estimatedfees = (totalweight as f32 *options.target_feerate).ceil() as u64;
-    if totalvalue < options.target_value + estimatedfees + options.min_drain_value {
-        return Err(SelectionError::SufficientInputsNotFound);
-    } else {
-        let waste_score: u64;
-        if excess_strategy == ExcessStrategy::ToDrain {
-            waste_score = calc_waste_metric(totalweight, options.target_feerate, options.long_term_feerate, options.drain_weight, totalvalue, options.target_value);
-        } else {
-            waste_score= 0;
-        }
-        return Ok(Some((selectedinputs, WasteMetric(waste_score))));
-
-    }
-
+) -> Result<SelectionOutput, SelectionError> {
+    unimplemented!()
 }
 
 
@@ -146,7 +122,7 @@ pub fn select_coin_srd(
     inputs: Vec<OutputGroup>,
     opitons: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
 
@@ -156,7 +132,7 @@ pub fn select_coin_(
     inputs: Vec<OutputGroup>,
     opitons: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<(Vec<u32>, WasteMetric), SelectionError> {
+) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
 
