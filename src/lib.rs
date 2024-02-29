@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 //! A blockchain-agnostic Rust Coinselection library
 
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
