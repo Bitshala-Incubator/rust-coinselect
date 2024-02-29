@@ -96,7 +96,7 @@ pub fn select_coin_knapsack(
 }
 
 /// Perform Coinselection via Lowest Larger algorithm.
-/// Return None, if no solution exists.
+/// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_lowestlarger(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
@@ -106,8 +106,7 @@ pub fn select_coin_lowestlarger(
 }
 
 /// Perform Coinselection via First-In-First-Out algorithm.
-/// Return None, if no solution exists.
-
+/// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_fifo(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
@@ -119,7 +118,7 @@ pub fn select_coin_fifo(
 
 
 /// Perform Coinselection via Single Random Draw.
-/// Return None, if no solution exists.
+/// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_srd(
     inputs: Vec<OutputGroup>,
     opitons: CoinSelectionOpt,
@@ -130,7 +129,7 @@ pub fn select_coin_srd(
 
 /// The Global Coinselection API that performs all the algorithms and proudeces result with least [WasteMetric].
 /// At least one selection solution should be found.
-pub fn select_coin_(
+pub fn select_coin(
     inputs: Vec<OutputGroup>,
     opitons: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
