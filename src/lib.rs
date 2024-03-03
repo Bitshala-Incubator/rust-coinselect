@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 //! A blockchain-agnostic Rust Coinselection library
+use std::cmp::Ordering;
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
 /// The library user is responsible for crafting this structure correctly. Incorrect representation of this
@@ -122,7 +123,42 @@ pub fn select_coin_fifo(
     options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    let mut totalvalue: u64 = 0;
+    let mut totalweight: u32 = 0;
+    let mut selected_inputs: Vec<u32> = Vec::new();
+    impl Ord for OutputGroup {
+        fn cmp(&self, other:&Self) -> Ordering{
+            self.creation_sequence.cmp(&other.creation_sequence)
+        }
+    }
+    impl PartialOrd for OutputGroup{
+        fn partial_cmp(&self, other:&Self) -> Option<Ordering>{
+            Some(self.cmp(other))
+        }
+    }
+    let mut sortedinputs = inputs.clone();
+    sortedinputs.sort_by(|a,b| a.creation_sequence.cmp(&b.creation_sequence));
+    for (index,input) in sortedinputs.iter().enumerate(){
+        if totalvalue >= options.target_value {
+            break;
+        }
+        totalvalue += input.value;
+        totalweight += input.weight;
+        selected_inputs.push(index as u32);
+
+    }
+    let estimatedfees = (totalweight as f32 *options.target_feerate).ceil() as u64;
+    if totalvalue < options.target_value + estimatedfees + options.min_drain_value {
+        return Err(SelectionError::NoSolutionFound);
+    } else {
+        let waste_score: u64;
+        if excess_strategy == ExcessStrategy::ToDrain {
+            waste_score = calc_waste_metric(totalweight, options.target_feerate, options.long_term_feerate, options.drain_weight, totalvalue, options.target_value);
+        } else {
+            waste_score= 0;
+        }
+        return Ok(SelectionOutput {selected_inputs, waste: WasteMetric(waste_score)});
+    }
 }
 
 
