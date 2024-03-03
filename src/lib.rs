@@ -1,12 +1,12 @@
 #![allow(unused)]
 
 //! A blockchain-agnostic Rust Coinselection library
-
+use std::cmp::Ordering;
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
 /// The library user is responsible for crafting this structure correctly. Incorrect representation of this
 /// structure will cause incorrect selection result.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OutputGroup {
     /// Total value of the UTXO(s) that this [`WeightedValue`] represents.
     pub value: u64,
@@ -22,7 +22,7 @@ pub struct OutputGroup {
     /// selection is not required.
     /// Sequqence numbers are arbitrary index only to denote relative age of utxo group among a set of groups.
     /// To denote the oldest utxo group, give them a sequence number of Some(0).
-    pub creation_sequqence: Option<u32>,
+    pub creation_sequence: Option<u32>,
 }
 
 /// A set of Options that guides the CoinSelection algorithms. These are inputs specified by the
@@ -51,7 +51,7 @@ pub struct CoinSelectionOpt {
 }
 
 /// Strategy to decide what to do with the excess amount.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ExcessStrategy {
     ToFee,
     ToRecipient,
@@ -101,7 +101,7 @@ pub fn select_coin_knapsack(
 /// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_lowestlarger(
     inputs: Vec<OutputGroup>,
-    opitons: CoinSelectionOpt,
+    options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
@@ -111,11 +111,48 @@ pub fn select_coin_lowestlarger(
 /// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_fifo(
     inputs: Vec<OutputGroup>,
-    opitons: CoinSelectionOpt,
+    options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    let mut totalvalue: u64 = 0;
+    let mut totalweight: u32 = 0;
+    let mut selected_inputs: Vec<u32> = Vec::new();
+    impl Ord for OutputGroup {
+        fn cmp(&self, other:&Self) -> Ordering{
+            self.creation_sequence.cmp(&other.creation_sequence)
+        }
+    }
+    impl PartialOrd for OutputGroup{
+        fn partial_cmp(&self, other:&Self) -> Option<Ordering>{
+            Some(self.cmp(other))
+        }
+    }
+    let mut sortedinputs = inputs.clone();
+    sortedinputs.sort_by(|a,b| a.creation_sequence.cmp(&b.creation_sequence));
+    for (index,input) in sortedinputs.iter().enumerate(){
+        if totalvalue >= options.target_value {
+            break;
+        }
+        totalvalue += input.value;
+        totalweight += input.weight;
+        selected_inputs.push(index as u32);
+
+    }
+    let estimatedfees = (totalweight as f32 *options.target_feerate).ceil() as u64;
+    if totalvalue < options.target_value + estimatedfees + options.min_drain_value {
+        return Err(SelectionError::NoSolutionFound);
+    } else {
+        let waste_score: u64;
+        if excess_strategy == ExcessStrategy::ToDrain {
+            waste_score = calc_waste_metric(totalweight, options.target_feerate, options.long_term_feerate, options.drain_weight, totalvalue, options.target_value);
+        } else {
+            waste_score= 0;
+        }
+        return Ok(SelectionOutput {selected_inputs, waste: WasteMetric(waste_score)});
+    }
 }
+
+
 
 /// Perform Coinselection via Single Random Draw.
 /// Return NoSolutionFound, if no solution exists.
@@ -137,7 +174,30 @@ pub fn select_coin(
     unimplemented!()
 }
 
-#[cfg(test)]
+pub fn calc_waste_metric(
+    inp_weight:u32,
+    target_feerate:f32,
+    longterm_feerate:Option<f32>,
+    drain_weight:u32,
+    totalvalue:u64,
+    target_value:u64,
+ ) -> u64 {
+    let waste_score = match longterm_feerate{
+        Some(fee) => {
+            let change: f32 = drain_weight as f32* fee;
+            let excess: u64 = totalvalue - target_value;
+            let waste_score = (inp_weight as f32 *(target_feerate-fee)+ change as f32 +excess as f32).ceil() as u64 ; 
+            waste_score
+        }, 
+        None => {
+            let waste_score:u64 = 0;
+            waste_score 
+        }
+    };
+    waste_score
+
+ }
+#[cfg(test)]    
 mod test {
 
     use super::*;
