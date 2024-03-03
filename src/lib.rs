@@ -8,7 +8,7 @@ use rand::{seq::SliceRandom, thread_rng};
 /// single UTXO, or a group of UTXOs that should be spent together.
 /// The library user is responsible for crafting this structure correctly. Incorrect representation of this
 /// structure will cause incorrect selection result.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OutputGroup {
     /// Total value of the UTXO(s) that this [`WeightedValue`] represents.
     pub value: u64,
@@ -328,20 +328,23 @@ fn calculate_waste(
     accumulated_weight: u32,
     estimated_fee: u64,
 ) -> u64 {
+    // waste =  weight*(target feerate - long term fee rate) + cost of change + excess
+    // weight - total weight of selected inputs
+    // cost of change - includes the fees paid on this transaction's change output plus the fees that will need to be paid to spend it later. If there is no change output, the cost is 0.
+    // excess - refers to the difference between the sum of selected inputs and the amount we need to pay (the sum of output values and fees). There shouldn’t be any excess if there is a change output.
+
     let mut waste: u64 = 0;
-
     if let Some(long_term_feerate) = options.long_term_feerate {
-        waste += (estimated_fee as f32
-            - selected_inputs.len() as f32 * long_term_feerate * accumulated_weight as f32)
-            .ceil() as u64;
+        waste = (accumulated_weight as f32 * (options.target_feerate - long_term_feerate)).ceil()
+            as u64;
     }
-
     if options.excess_strategy != ExcessStrategy::ToDrain {
-        waste += accumulated_value - options.target_value - estimated_fee;
+        // Change is not created if excess strategy is ToFee or ToRecipient. Hence cost of change is added
+        waste += (accumulated_value - (options.target_value + estimated_fee));
     } else {
+        // Change is created if excess strategy is set to ToDrain. Hence 'excess' should be set to 0
         waste += options.drain_cost;
     }
-
     waste
 }
 
@@ -358,7 +361,8 @@ fn effective_value(output: &OutputGroup, feerate: f32) -> u64 {
         .saturating_sub(calculate_fee(output.weight, feerate))
 }
 
-#[cfg(test)]
+
+#[cfg(test)]    
 mod test {
 
     use super::*;
