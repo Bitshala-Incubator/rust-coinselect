@@ -101,14 +101,16 @@ pub fn select_coin_lowestlarger(
 
 /// Perform Coinselection via First-In-First-Out algorithm.
 /// Return None, if no solution exists.
+
 pub fn select_coin_fifo(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<Option<(Vec<u32>, WasteMetric)>, SelectionError> {
+) -> Result<Option<(Vec<u64>, WasteMetric)>, SelectionError> { /* Using the value of the input as an identifier for the selected inputs, as the index of the vec<outputgroup> can't be used because the vector itself is sorted first. Ideally, txid of the input can serve as an unique identifier */
     let mut totalvalue: u64 = 0;
     let mut totalweight: u32 = 0;
-    let mut selectedinputs: Vec<u32> = Vec::new();
+    let mut selectedinputs: Vec<u64> = Vec::new();
+    /// Sorting the inputs vector based on creation_sequence
     impl Ord for OutputGroup {
         fn cmp(&self, other:&Self) -> Ordering{
             self.creation_sequence.cmp(&other.creation_sequence)
@@ -121,13 +123,13 @@ pub fn select_coin_fifo(
     }
     let mut sortedinputs = inputs.clone();
     sortedinputs.sort_by(|a,b| a.creation_sequence.cmp(&b.creation_sequence));
-    for (index,input) in sortedinputs.iter().enumerate(){
+    for input in sortedinputs.iter(){
         if totalvalue >= options.target_value {
             break;
         }
         totalvalue += input.value;
         totalweight += input.weight;
-        selectedinputs.push(index as u32);
+        selectedinputs.push(input.value);
 
     }
     let estimatedfees = (totalweight as f32 *options.target_feerate).ceil() as u64;
