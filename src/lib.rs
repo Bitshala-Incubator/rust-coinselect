@@ -47,7 +47,7 @@ pub struct CoinSelectionOpt {
     pub drain_weight: u32,
 
     /// Weight of spending the drain (change) output in the future.
-    pub drain_cost: u64, 
+    pub drain_cost: u64,
 
     /// Minimum value allowed for a drain (change) output.
     pub min_drain_value: u64,
@@ -163,7 +163,14 @@ pub fn select_coin_srd(
         return Err(SelectionError::NoSolutionFound);
     }
     // accumulated_weight += weightof(input_counts)?? TODO
-    let waste = calculate_waste(&inputs, &selected_inputs, &options, accumulated_value, accumulated_weight, estimated_fee);
+    let waste = calculate_waste(
+        &inputs,
+        &selected_inputs,
+        &options,
+        accumulated_value,
+        accumulated_weight,
+        estimated_fee,
+    );
 
     Ok(SelectionOutput {
         selected_inputs,
@@ -182,11 +189,20 @@ pub fn select_coin(
 }
 
 #[inline]
-fn calculate_waste(inputs: &Vec<OutputGroup>, selected_inputs: &Vec<usize>, options: &CoinSelectionOpt, accumulated_value: u64, accumulated_weight: u32, estimated_fee: u64) -> u64 {
+fn calculate_waste(
+    inputs: &Vec<OutputGroup>,
+    selected_inputs: &Vec<usize>,
+    options: &CoinSelectionOpt,
+    accumulated_value: u64,
+    accumulated_weight: u32,
+    estimated_fee: u64,
+) -> u64 {
     let mut waste: u64 = 0;
 
     if let Some(long_term_feerate) = options.long_term_feerate {
-        waste += (estimated_fee as f32 - selected_inputs.len() as f32 * long_term_feerate * accumulated_weight as f32).ceil() as u64;
+        waste += (estimated_fee as f32
+            - selected_inputs.len() as f32 * long_term_feerate * accumulated_weight as f32)
+            .ceil() as u64;
     }
 
     if options.excess_strategy != ExcessStrategy::ToDrain {
@@ -194,7 +210,7 @@ fn calculate_waste(inputs: &Vec<OutputGroup>, selected_inputs: &Vec<usize>, opti
     } else {
         waste += options.drain_cost;
     }
-    
+
     waste
 }
 
