@@ -24,6 +24,16 @@ pub struct OutputGroup {
     /// To denote the oldest utxo group, give them a sequence number of Some(0).
     pub creation_sequence: Option<u32>,
 }
+impl Ord for OutputGroup {
+    fn cmp(&self, other:&Self) -> Ordering{
+        self.creation_sequence.cmp(&other.creation_sequence)
+    }
+}
+impl PartialOrd for OutputGroup{
+    fn partial_cmp(&self, other:&Self) -> Option<Ordering>{
+        Some(self.cmp(other))
+    }
+}
 /// A set of Options that guides the CoinSelection algorithms. These are inputs specified by the
 /// user to perform coinselection to achieve a set a target parameters.
 #[derive(Debug, Clone, Copy)]
@@ -126,16 +136,6 @@ pub fn select_coin_fifo(
     let mut totalvalue: u64 = 0;
     let mut totalweight: u32 = 0;
     let mut selected_inputs: Vec<u32> = Vec::new();
-    impl Ord for OutputGroup {
-        fn cmp(&self, other:&Self) -> Ordering{
-            self.creation_sequence.cmp(&other.creation_sequence)
-        }
-    }
-    impl PartialOrd for OutputGroup{
-        fn partial_cmp(&self, other:&Self) -> Option<Ordering>{
-            Some(self.cmp(other))
-        }
-    }
     let mut sortedinputs = inputs.clone();
     sortedinputs.sort_by(|a,b| a.creation_sequence.cmp(&b.creation_sequence));
     for (index,input) in sortedinputs.iter().enumerate(){
