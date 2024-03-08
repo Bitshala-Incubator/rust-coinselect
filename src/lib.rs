@@ -22,7 +22,16 @@ pub struct OutputGroup {
     /// To denote the oldest utxo group, give them a sequence number of Some(0).
     pub creation_sequence: Option<u32>,
 }
-
+impl Ord for OutputGroup {
+    fn cmp(&self, other:&Self) -> Ordering{
+        self.creation_sequence.cmp(&other.creation_sequence)
+    }
+}
+impl PartialOrd for OutputGroup{
+    fn partial_cmp(&self, other:&Self) -> Option<Ordering>{
+        Some(self.cmp(other))
+    }
+}
 /// A set of Options that guides the CoinSelection algorithms. These are inputs specified by the
 /// user to perform coinselection to achieve a set a target parameters.
 #[derive(Debug, Clone, Copy)]
@@ -110,21 +119,13 @@ pub fn select_coin_fifo(
     let mut totalvalue: u64 = 0;
     let mut totalweight: u32 = 0;
     let mut selectedinputs: Vec<u64> = Vec::new();
-    /// Sorting the inputs vector based on creation_sequence
-    impl Ord for OutputGroup {
-        fn cmp(&self, other:&Self) -> Ordering{
-            self.creation_sequence.cmp(&other.creation_sequence)
-        }
-    }
-    impl PartialOrd for OutputGroup{
-        fn partial_cmp(&self, other:&Self) -> Option<Ordering>{
-            Some(self.cmp(other))
-        }
-    }
+    
+    // Sorting the inputs vector based on creation_sequence
+    
     let mut sortedinputs = inputs.clone();
-    sortedinputs.sort_by(|a,b| a.creation_sequence.cmp(&b.creation_sequence));
+    sortedinputs.sort_by_key(|a| a.creation_sequence);
     for input in sortedinputs.iter(){
-        if totalvalue >= options.target_value {
+        if totalvalue >= (options.target_value + (options.target_feerate*totalweight as f32).ceil() as u64){
             break;
         }
         totalvalue += input.value;
