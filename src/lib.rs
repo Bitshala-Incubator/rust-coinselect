@@ -29,11 +29,7 @@ impl Ord for OutputGroup {
         self.creation_sequence.cmp(&other.creation_sequence)
     }
 }
-impl PartialOrd for OutputGroup{
-    fn partial_cmp(&self, other:&Self) -> Option<Ordering>{
-        Some(self.cmp(other))
-    }
-}
+
 /// A set of Options that guides the CoinSelection algorithms. These are inputs specified by the
 /// user to perform coinselection to achieve a set a target parameters.
 #[derive(Debug, Clone, Copy)]
@@ -232,10 +228,11 @@ mod test {
         };
         let excess_strategy = ExcessStrategy::ToFee;
         let result = select_coin_fifo(inputs, options, excess_strategy);
+        }
         // Check if select_coin_fifo() returns the correct type
         assert!(result.is_ok());
-        }
-        
+
+    }
 
     #[test]
     fn test_lowestlarger() {
