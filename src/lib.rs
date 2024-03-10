@@ -1,7 +1,6 @@
 #![allow(unused)]
 
 //! A blockchain-agnostic Rust Coinselection library
-use std::cmp::Ordering;
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
 /// The library user is responsible for crafting this structure correctly. Incorrect representation of this
@@ -24,12 +23,6 @@ pub struct OutputGroup {
     /// To denote the oldest utxo group, give them a sequence number of Some(0).
     pub creation_sequence: Option<u32>,
 }
-impl Ord for OutputGroup {
-    fn cmp(&self, other:&Self) -> Ordering{
-        self.creation_sequence.cmp(&other.creation_sequence)
-    }
-}
-
 /// A set of Options that guides the CoinSelection algorithms. These are inputs specified by the
 /// user to perform coinselection to achieve a set a target parameters.
 #[derive(Debug, Clone, Copy)]
@@ -228,11 +221,10 @@ mod test {
         };
         let excess_strategy = ExcessStrategy::ToFee;
         let result = select_coin_fifo(inputs, options, excess_strategy);
-        }
         // Check if select_coin_fifo() returns the correct type
         assert!(result.is_ok());
-
-    }
+        }
+        
 
     #[test]
     fn test_lowestlarger() {
