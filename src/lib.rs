@@ -26,12 +26,6 @@ pub struct OutputGroup {
     /// To denote the oldest utxo group, give them a sequence number of Some(0).
     pub creation_sequence: Option<u32>,
 }
-impl Ord for OutputGroup {
-    fn cmp(&self, other:&Self) -> Ordering{
-        self.creation_sequence.cmp(&other.creation_sequence)
-    }
-}
-
 /// A set of Options that guides the CoinSelection algorithms. These are inputs specified by the
 /// user to perform coinselection to achieve a set a target parameters.
 #[derive(Debug, Clone, Copy)]
