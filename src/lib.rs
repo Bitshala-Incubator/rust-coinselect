@@ -31,11 +31,7 @@ impl Ord for OutputGroup {
         self.creation_sequence.cmp(&other.creation_sequence)
     }
 }
-impl PartialOrd for OutputGroup{
-    fn partial_cmp(&self, other:&Self) -> Option<Ordering>{
-        Some(self.cmp(other))
-    }
-}
+
 /// A set of Options that guides the CoinSelection algorithms. These are inputs specified by the
 /// user to perform coinselection to achieve a set a target parameters.
 #[derive(Debug, Clone, Copy)]
