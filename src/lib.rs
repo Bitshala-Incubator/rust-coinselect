@@ -160,7 +160,7 @@ pub fn select_coin_srd(
     }
 
     if accumulated_value < options.target_value + options.min_drain_value + estimated_fee {
-        return Err(SelectionError::NoSolutionFound);
+        return Err(SelectionError::InsufficientFunds);
     }
     // accumulated_weight += weightof(input_counts)?? TODO
     let waste = calculate_waste(
@@ -219,14 +219,52 @@ mod test {
 
     use super::*;
 
+    fn setup_basic_output_groups() -> Vec<OutputGroup> {
+        vec![
+            OutputGroup { value: 1000, weight: 100, input_count: 1, is_segwit: false, creation_sequqence: None },
+            OutputGroup { value: 2000, weight: 200, input_count: 1, is_segwit: false, creation_sequqence: None },
+            OutputGroup { value: 3000, weight: 300, input_count: 1, is_segwit: false, creation_sequqence: None },
+        ]
+    }
+
+    fn setup_options(target_value: u64) -> CoinSelectionOpt {
+        CoinSelectionOpt {
+            target_value,
+            target_feerate: 0.5, // Simplified feerate
+            long_term_feerate: None,
+            min_absolute_fee: 0,
+            base_weight: 10,
+            drain_weight: 50,
+            drain_cost: 0,
+            min_drain_value: 500,
+            excess_strategy: ExcessStrategy::ToDrain,
+        }
+    }
+
     #[test]
     fn test_bnb() {
         // Perform BNB selection of set of test values.
     }
 
+     fn test_successful_selection() {
+        let inputs = setup_basic_output_groups();
+        let options = setup_options(2500);
+        let result = select_coin_srd(inputs, options);
+        assert!(result.is_ok());
+        let selection_output = result.unwrap();
+        assert!(selection_output.selected_inputs.len() > 0);
+    }
+
+    fn test_insufficient_funds() {
+        let inputs = setup_basic_output_groups();
+        let options = setup_options(7000); // Set a target value higher than the sum of all inputs
+        let result = select_coin_srd(inputs, options);
+        assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
+    }
     #[test]
     fn test_srd() {
-        // Perform SRD selection of set of test values.
+        test_successful_selection();
+        test_insufficient_funds();
     }
 
     #[test]
