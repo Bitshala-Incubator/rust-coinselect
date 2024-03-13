@@ -190,8 +190,8 @@ pub fn select_coin(
 
 #[inline]
 fn calculate_waste(
-    inputs: &Vec<OutputGroup>,
-    selected_inputs: &Vec<usize>,
+    inputs: &[OutputGroup],
+    selected_inputs: &[usize],
     options: &CoinSelectionOpt,
     accumulated_value: u64,
     accumulated_weight: u32,
@@ -270,7 +270,7 @@ mod test {
         let result = select_coin_srd(inputs, options);
         assert!(result.is_ok());
         let selection_output = result.unwrap();
-        assert!(selection_output.selected_inputs.len() > 0);
+        assert!(selection_output.selected_inputs.is_empty());
     }
 
     fn test_insufficient_funds() {
