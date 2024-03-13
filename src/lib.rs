@@ -2,6 +2,8 @@
 
 //! A blockchain-agnostic Rust Coinselection library
 
+use rand::{seq::SliceRandom, thread_rng};
+
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
 /// The library user is responsible for crafting this structure correctly. Incorrect representation of this
@@ -43,15 +45,19 @@ pub struct CoinSelectionOpt {
     pub base_weight: u32,
     /// Additional weight if we include the drain (change) output.
     pub drain_weight: u32,
+
     /// Weight of spending the drain (change) output in the future.
-    pub spend_drain_weight: u32, // TODO: Maybe out of scope? (waste)
+    pub drain_cost: u64,
 
     /// Minimum value allowed for a drain (change) output.
     pub min_drain_value: u64,
+
+    /// Strategy to use the excess value other than fee and target
+    pub excess_strategy: ExcessStrategy,
 }
 
 /// Strategy to decide what to do with the excess amount.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExcessStrategy {
     ToFee,
     ToRecipient,
@@ -74,7 +80,7 @@ pub struct WasteMetric(u64);
 /// The result of selection algorithm
 pub struct SelectionOutput {
     /// The selected inputs
-    pub selected_inputs: Vec<u32>,
+    pub selected_inputs: Vec<usize>,
     /// The waste amount, for the above inputs
     pub waste: WasteMetric,
 }
@@ -82,7 +88,7 @@ pub struct SelectionOutput {
 /// Perform Coinselection via Branch And Bound algorithm.
 pub fn select_coin_bnb(
     inputs: Vec<OutputGroup>,
-    opitons: CoinSelectionOpt,
+    options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
@@ -91,7 +97,7 @@ pub fn select_coin_bnb(
 /// Perform Coinselection via Knapsack solver.
 pub fn select_coin_knapsack(
     inputs: Vec<OutputGroup>,
-    opitons: CoinSelectionOpt,
+    options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
@@ -101,7 +107,7 @@ pub fn select_coin_knapsack(
 /// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_lowestlarger(
     inputs: Vec<OutputGroup>,
-    opitons: CoinSelectionOpt,
+    options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
@@ -111,7 +117,7 @@ pub fn select_coin_lowestlarger(
 /// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_fifo(
     inputs: Vec<OutputGroup>,
-    opitons: CoinSelectionOpt,
+    options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
@@ -121,20 +127,91 @@ pub fn select_coin_fifo(
 /// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_srd(
     inputs: Vec<OutputGroup>,
-    opitons: CoinSelectionOpt,
-    excess_strategy: ExcessStrategy,
+    options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    // Randomize the inputs order to simulate the random draw
+    let mut rng = thread_rng();
+
+    // In out put we need to specify the indexes of the inputs in the given order
+    // So keep track of the indexes when randomiz ing the vec
+    let mut randomized_inputs: Vec<_> = inputs.iter().enumerate().collect();
+
+    // Randomize the inputs order to simulate the random draw
+    let mut rng = thread_rng();
+    randomized_inputs.shuffle(&mut rng);
+
+    let mut accumulated_value = 0;
+    let mut selected_inputs = Vec::new();
+    let mut accumulated_weight = 0;
+    let mut estimated_fee = 0;
+    let mut input_counts = 0;
+
+    for (index, input) in randomized_inputs {
+        selected_inputs.push(index);
+        accumulated_value += input.value;
+        accumulated_weight += input.weight;
+        input_counts += input.input_count;
+
+        estimated_fee = (accumulated_weight as f32 * options.target_feerate).ceil() as u64;
+
+        if accumulated_value >= options.target_value + options.min_drain_value + estimated_fee {
+            break;
+        }
+    }
+
+    if accumulated_value < options.target_value + options.min_drain_value + estimated_fee {
+        return Err(SelectionError::InsufficientFunds);
+    }
+    // accumulated_weight += weightof(input_counts)?? TODO
+    let waste = calculate_waste(
+        &inputs,
+        &selected_inputs,
+        &options,
+        accumulated_value,
+        accumulated_weight,
+        estimated_fee,
+    );
+
+    Ok(SelectionOutput {
+        selected_inputs,
+        waste: WasteMetric(waste),
+    })
 }
 
 /// The Global Coinselection API that performs all the algorithms and proudeces result with least [WasteMetric].
 /// At least one selection solution should be found.
 pub fn select_coin(
     inputs: Vec<OutputGroup>,
-    opitons: CoinSelectionOpt,
+    options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
+}
+
+#[inline]
+fn calculate_waste(
+    inputs: &[OutputGroup],
+    selected_inputs: &[usize],
+    options: &CoinSelectionOpt,
+    accumulated_value: u64,
+    accumulated_weight: u32,
+    estimated_fee: u64,
+) -> u64 {
+    let mut waste: u64 = 0;
+
+    if let Some(long_term_feerate) = options.long_term_feerate {
+        waste += (estimated_fee as f32
+            - selected_inputs.len() as f32 * long_term_feerate * accumulated_weight as f32)
+            .ceil() as u64;
+    }
+
+    if options.excess_strategy != ExcessStrategy::ToDrain {
+        waste += accumulated_value - options.target_value - estimated_fee;
+    } else {
+        waste += options.drain_cost;
+    }
+
+    waste
 }
 
 #[cfg(test)]
@@ -142,14 +219,70 @@ mod test {
 
     use super::*;
 
+    fn setup_basic_output_groups() -> Vec<OutputGroup> {
+        vec![
+            OutputGroup {
+                value: 1000,
+                weight: 100,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequqence: None,
+            },
+            OutputGroup {
+                value: 2000,
+                weight: 200,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequqence: None,
+            },
+            OutputGroup {
+                value: 3000,
+                weight: 300,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequqence: None,
+            },
+        ]
+    }
+
+    fn setup_options(target_value: u64) -> CoinSelectionOpt {
+        CoinSelectionOpt {
+            target_value,
+            target_feerate: 0.5, // Simplified feerate
+            long_term_feerate: None,
+            min_absolute_fee: 0,
+            base_weight: 10,
+            drain_weight: 50,
+            drain_cost: 0,
+            min_drain_value: 500,
+            excess_strategy: ExcessStrategy::ToDrain,
+        }
+    }
+
     #[test]
     fn test_bnb() {
         // Perform BNB selection of set of test values.
     }
 
+    fn test_successful_selection() {
+        let inputs = setup_basic_output_groups();
+        let options = setup_options(2500);
+        let result = select_coin_srd(inputs, options);
+        assert!(result.is_ok());
+        let selection_output = result.unwrap();
+        assert!(!selection_output.selected_inputs.is_empty());
+    }
+
+    fn test_insufficient_funds() {
+        let inputs = setup_basic_output_groups();
+        let options = setup_options(7000); // Set a target value higher than the sum of all inputs
+        let result = select_coin_srd(inputs, options);
+        assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
+    }
     #[test]
     fn test_srd() {
-        // Perform SRD selection of set of test values.
+        test_successful_selection();
+        test_insufficient_funds();
     }
 
     #[test]
