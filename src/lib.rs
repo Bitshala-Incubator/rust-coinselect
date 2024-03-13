@@ -221,9 +221,27 @@ mod test {
 
     fn setup_basic_output_groups() -> Vec<OutputGroup> {
         vec![
-            OutputGroup { value: 1000, weight: 100, input_count: 1, is_segwit: false, creation_sequqence: None },
-            OutputGroup { value: 2000, weight: 200, input_count: 1, is_segwit: false, creation_sequqence: None },
-            OutputGroup { value: 3000, weight: 300, input_count: 1, is_segwit: false, creation_sequqence: None },
+            OutputGroup {
+                value: 1000,
+                weight: 100,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequqence: None,
+            },
+            OutputGroup {
+                value: 2000,
+                weight: 200,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequqence: None,
+            },
+            OutputGroup {
+                value: 3000,
+                weight: 300,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequqence: None,
+            },
         ]
     }
 
@@ -246,7 +264,7 @@ mod test {
         // Perform BNB selection of set of test values.
     }
 
-     fn test_successful_selection() {
+    fn test_successful_selection() {
         let inputs = setup_basic_output_groups();
         let options = setup_options(2500);
         let result = select_coin_srd(inputs, options);
