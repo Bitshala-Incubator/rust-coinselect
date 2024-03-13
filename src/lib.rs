@@ -270,7 +270,7 @@ mod test {
         let result = select_coin_srd(inputs, options);
         assert!(result.is_ok());
         let selection_output = result.unwrap();
-        assert!(selection_output.selected_inputs.is_empty());
+        assert!(!selection_output.selected_inputs.is_empty());
     }
 
     fn test_insufficient_funds() {
