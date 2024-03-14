@@ -133,11 +133,11 @@ pub fn select_coin_fifo(
     }
     let estimatedfees = (totalweight as f32 * options.target_feerate).ceil() as u64;
     if totalvalue < options.target_value + estimatedfees + options.min_drain_value {
-        return Err(SelectionError::NoSolutionFound);
+        Err(SelectionError::NoSolutionFound)
     } else {
-        let waste_score: u64;
+        let mut waste_score: u64 = 0;
         if excess_strategy == ExcessStrategy::ToDrain {
-            waste_score = calc_waste_metric(
+            let waste_score: u64 = calc_waste_metric(
                 totalweight,
                 options.target_feerate,
                 options.long_term_feerate,
@@ -148,7 +148,7 @@ pub fn select_coin_fifo(
         } else {
             waste_score = 0;
         }
-        return Ok(Some((selectedinputs, WasteMetric(waste_score))));
+        Ok(Some((selectedinputs, WasteMetric(waste_score))))
     }
 }
 
@@ -180,21 +180,18 @@ pub fn calc_waste_metric(
     totalvalue: u64,
     target_value: u64,
 ) -> u64 {
-    let waste_score = match longterm_feerate {
+    match longterm_feerate {
         Some(fee) => {
             let change: f32 = drain_weight as f32 * fee;
             let excess: u64 = totalvalue - target_value;
-            let waste_score =
-                (inp_weight as f32 * (target_feerate - fee) + change as f32 + excess as f32).ceil()
-                    as u64;
-            waste_score
+
+            (inp_weight as f32 * (target_feerate - fee) + change + excess as f32).ceil() as u64
         }
         None => {
             let waste_score: u64 = 0;
             waste_score
         }
-    };
-    waste_score
+    }
 }
 #[cfg(test)]
 mod test {
