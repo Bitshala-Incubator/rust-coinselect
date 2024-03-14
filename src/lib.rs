@@ -116,7 +116,9 @@ pub fn select_coin_lowestlarger(
 }
 
 /// Perform Coinselection via First-In-First-Out algorithm.
+
 /// Return NoSolutionFound, if no solution exists.
+
 pub fn select_coin_fifo(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
