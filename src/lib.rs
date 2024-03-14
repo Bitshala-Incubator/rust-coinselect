@@ -111,36 +111,46 @@ pub fn select_coin_fifo(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<SelectionOutput, SelectionError> {
+) -> Result<Option<(Vec<u64>, WasteMetric)>, SelectionError> {
+    /* Using the value of the input as an identifier for the selected inputs, as the index of the vec<outputgroup> can't be used because the vector itself is sorted first. Ideally, txid of the input can serve as an unique identifier */
     let mut totalvalue: u64 = 0;
     let mut totalweight: u32 = 0;
-    let mut selected_inputs: Vec<u32> = Vec::new();
+    let mut selectedinputs: Vec<u64> = Vec::new();
+
+    // Sorting the inputs vector based on creation_sequence
+
     let mut sortedinputs = inputs.clone();
-    sortedinputs.sort_by(|a,b| a.creation_sequence.cmp(&b.creation_sequence));
-    for (index,input) in sortedinputs.iter().enumerate(){
-        if totalvalue >= options.target_value {
+    sortedinputs.sort_by_key(|a| a.creation_sequence);
+    for input in sortedinputs.iter() {
+        if totalvalue
+            >= (options.target_value + (options.target_feerate * totalweight as f32).ceil() as u64)
+        {
             break;
         }
         totalvalue += input.value;
         totalweight += input.weight;
-        selected_inputs.push(index as u32);
-
+        selectedinputs.push(input.value);
     }
-    let estimatedfees = (totalweight as f32 *options.target_feerate).ceil() as u64;
+    let estimatedfees = (totalweight as f32 * options.target_feerate).ceil() as u64;
     if totalvalue < options.target_value + estimatedfees + options.min_drain_value {
         return Err(SelectionError::NoSolutionFound);
     } else {
         let waste_score: u64;
         if excess_strategy == ExcessStrategy::ToDrain {
-            waste_score = calc_waste_metric(totalweight, options.target_feerate, options.long_term_feerate, options.drain_weight, totalvalue, options.target_value);
+            waste_score = calc_waste_metric(
+                totalweight,
+                options.target_feerate,
+                options.long_term_feerate,
+                options.drain_weight,
+                totalvalue,
+                options.target_value,
+            );
         } else {
-            waste_score= 0;
+            waste_score = 0;
         }
-        return Ok(SelectionOutput {selected_inputs, waste: WasteMetric(waste_score)});
+        return Ok(Some((selectedinputs, WasteMetric(waste_score))));
     }
 }
-
-
 
 /// Perform Coinselection via Single Random Draw.
 /// Return NoSolutionFound, if no solution exists.
@@ -163,29 +173,30 @@ pub fn select_coin(
 }
 
 pub fn calc_waste_metric(
-    inp_weight:u32,
-    target_feerate:f32,
-    longterm_feerate:Option<f32>,
-    drain_weight:u32,
-    totalvalue:u64,
-    target_value:u64,
- ) -> u64 {
-    let waste_score = match longterm_feerate{
+    inp_weight: u32,
+    target_feerate: f32,
+    longterm_feerate: Option<f32>,
+    drain_weight: u32,
+    totalvalue: u64,
+    target_value: u64,
+) -> u64 {
+    let waste_score = match longterm_feerate {
         Some(fee) => {
-            let change: f32 = drain_weight as f32* fee;
+            let change: f32 = drain_weight as f32 * fee;
             let excess: u64 = totalvalue - target_value;
-            let waste_score = (inp_weight as f32 *(target_feerate-fee)+ change as f32 +excess as f32).ceil() as u64 ; 
+            let waste_score =
+                (inp_weight as f32 * (target_feerate - fee) + change as f32 + excess as f32).ceil()
+                    as u64;
             waste_score
-        }, 
+        }
         None => {
-            let waste_score:u64 = 0;
-            waste_score 
+            let waste_score: u64 = 0;
+            waste_score
         }
     };
     waste_score
-
- }
-#[cfg(test)]    
+}
+#[cfg(test)]
 mod test {
 
     use super::*;
@@ -223,8 +234,7 @@ mod test {
         let result = select_coin_fifo(inputs, options, excess_strategy);
         // Check if select_coin_fifo() returns the correct type
         assert!(result.is_ok());
-        }
-        
+    }
 
     #[test]
     fn test_lowestlarger() {
