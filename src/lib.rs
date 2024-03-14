@@ -22,9 +22,9 @@ pub struct OutputGroup {
     pub is_segwit: bool,
     /// Relative Creation sequence for this group. Only used for FIFO selection. Specify None, if FIFO
     /// selection is not required.
-    /// Sequqence numbers are arbitrary index only to denote relative age of utxo group among a set of groups.
+    /// sequence numbers are arbitrary index only to denote relative age of utxo group among a set of groups.
     /// To denote the oldest utxo group, give them a sequence number of Some(0).
-    pub creation_sequqence: Option<u32>,
+    pub creation_sequence: Option<u32>,
 }
 
 /// A set of Options that guides the CoinSelection algorithms. These are inputs specified by the
@@ -226,21 +226,21 @@ mod test {
                 weight: 100,
                 input_count: 1,
                 is_segwit: false,
-                creation_sequqence: None,
+                creation_sequence: None,
             },
             OutputGroup {
                 value: 2000,
                 weight: 200,
                 input_count: 1,
                 is_segwit: false,
-                creation_sequqence: None,
+                creation_sequence: None,
             },
             OutputGroup {
                 value: 3000,
                 weight: 300,
                 input_count: 1,
                 is_segwit: false,
-                creation_sequqence: None,
+                creation_sequence: None,
             },
         ]
     }
