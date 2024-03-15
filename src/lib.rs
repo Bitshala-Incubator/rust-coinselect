@@ -82,8 +82,8 @@ pub struct WasteMetric(u64);
 /// The result of selection algorithm
 #[derive(Debug)]
 pub struct SelectionOutput {
-    /// The selected inputs
-    pub selected_inputs: Vec<u32>,
+    /// The selected input indices, refers to the indices of the original inputs Vec
+    pub selected_inputs: Vec<usize>,
     /// The waste amount, for the above inputs
     pub waste: WasteMetric,
 }
@@ -91,17 +91,27 @@ pub struct SelectionOutput {
 /// Perform Coinselection via Branch And Bound algorithm.
 pub fn select_coin_bnb(
     inputs: Vec<OutputGroup>,
-    opitons: CoinSelectionOpt,
-    excess_strategy: ExcessStrategy,
+    options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
+    unimplemented!()
+}
+
+/// Return empty vec if no solutions are found
+fn bnb(
+    inputs_in_desc_value: &[(usize, OutputGroup)],
+    selected_inputs: &[usize],
+    effective_value: u64,
+    depth: usize,
+    bnp_tries: u32,
+    options: &CoinSelectionOpt,
+) -> Vec<usize> {
     unimplemented!()
 }
 
 /// Perform Coinselection via Knapsack solver.
 pub fn select_coin_knapsack(
     inputs: Vec<OutputGroup>,
-    opitons: CoinSelectionOpt,
-    excess_strategy: ExcessStrategy,
+    options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
@@ -111,7 +121,6 @@ pub fn select_coin_knapsack(
 pub fn select_coin_lowestlarger(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
-    excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
@@ -123,7 +132,6 @@ pub fn select_coin_lowestlarger(
 pub fn select_coin_fifo(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
-    excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
     let mut accumulated_value: u64 = 0;
     let mut accumulated_weight: u32 = 0;
@@ -190,8 +198,7 @@ pub fn select_coin_srd(
 /// At least one selection solution should be found.
 pub fn select_coin(
     inputs: Vec<OutputGroup>,
-    opitons: CoinSelectionOpt,
-    excess_strategy: ExcessStrategy,
+    options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
