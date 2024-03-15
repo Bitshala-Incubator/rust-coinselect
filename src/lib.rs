@@ -244,7 +244,31 @@ mod test {
             },
         ]
     }
-
+    fn setup_fifo_output_groups() -> Vec<OutputGroup> {
+        vec![
+            OutputGroup {
+                value: 1000,
+                weight: 100,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: Some(1),
+            },
+            OutputGroup {
+                value: 2000,
+                weight: 200,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: Some(5),
+            },
+            OutputGroup {
+                value: 3000,
+                weight: 300,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: Some(1001),
+            },
+        ]
+    }
     fn setup_options(target_value: u64) -> CoinSelectionOpt {
         CoinSelectionOpt {
             target_value,
@@ -291,6 +315,13 @@ mod test {
     }
 
     #[test]
+    fn test_successful_fifo_selection() {
+        let inputs = setup_fifo_output_groups();
+        let options = setup_options(500); // Seting up target value such that excess exists
+        let result = select_coin_fifo(inputs, options);
+        let selection_output = result.unwrap();
+        assert!(!selection_output.selected_inputs.is_empty());
+    }
     fn test_fifo() {
         // Perform FIFO selection of set of test values.
     }
