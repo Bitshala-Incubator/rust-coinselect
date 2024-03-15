@@ -101,7 +101,7 @@ pub fn select_coin_bnb(
 
 /// Return empty vec if no solutions are found
 fn bnb(
-    inputs_in_desc_value: &Vec<(usize, OutputGroup)>,
+    inputs_in_desc_value: &[(usize, OutputGroup)],
     selected_inputs: &[usize],
     effective_value: u64,
     depth: usize,
