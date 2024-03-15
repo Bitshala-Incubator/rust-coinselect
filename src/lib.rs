@@ -49,6 +49,12 @@ pub struct CoinSelectionOpt {
     /// Weight of spending the drain (change) output in the future.
     pub drain_cost: u64,
 
+    /// Estimate of cost of spending an input
+    pub cost_per_input: u64,
+
+    /// Estimate of cost of spending the output
+    pub cost_per_output: u64,
+
     /// Minimum value allowed for a drain (change) output.
     pub min_drain_value: u64,
 
@@ -80,7 +86,7 @@ pub struct WasteMetric(u64);
 /// The result of selection algorithm
 #[derive(Debug)]
 pub struct SelectionOutput {
-    /// The selected inputs
+    /// The selected input indices, refers to the indices of the original inputs Vec
     pub selected_inputs: Vec<usize>,
     /// The waste amount, for the above inputs
     pub waste: WasteMetric,
@@ -90,8 +96,19 @@ pub struct SelectionOutput {
 pub fn select_coin_bnb(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
-    excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
+    unimplemented!()
+}
+
+/// Return empty vec if no solutions are found
+fn bnb(
+    inputs_in_desc_value: &[(usize, OutputGroup)],
+    selected_inputs: &[usize],
+    effective_value: u64,
+    depth: usize,
+    bnp_tries: u32,
+    options: &CoinSelectionOpt,
+) -> Vec<usize> {
     unimplemented!()
 }
 
@@ -99,7 +116,6 @@ pub fn select_coin_bnb(
 pub fn select_coin_knapsack(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
-    excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
@@ -109,7 +125,6 @@ pub fn select_coin_knapsack(
 pub fn select_coin_lowestlarger(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
-    excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
@@ -119,7 +134,6 @@ pub fn select_coin_lowestlarger(
 pub fn select_coin_fifo(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
-    excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
     let mut accumulated_value: u64 = 0;
     let mut accumulated_weight: u32 = 0;
@@ -232,7 +246,6 @@ pub fn select_coin_srd(
 pub fn select_coin(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
-    excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
 }
@@ -326,7 +339,9 @@ mod test {
             min_absolute_fee: 0,
             base_weight: 10,
             drain_weight: 50,
-            drain_cost: 0,
+            drain_cost: 10,
+            cost_per_input: 20,
+            cost_per_output: 10,
             min_drain_value: 500,
             excess_strategy: ExcessStrategy::ToDrain,
         }
