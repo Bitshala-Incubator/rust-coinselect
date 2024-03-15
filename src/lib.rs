@@ -289,7 +289,7 @@ mod test {
             },
         ]
     }
-    fn setup_fifo_output_groups () -> Vec<OutputGroup> {
+    fn setup_fifo_output_groups() -> Vec<OutputGroup> {
         vec![
             OutputGroup {
                 value: 1000,
@@ -360,7 +360,7 @@ mod test {
     }
 
     #[test]
-    fn test_successful_fifo_selection(){
+    fn test_successful_fifo_selection() {
         let inputs = setup_fifo_output_groups();
         let options = setup_options(500); // Seting up target value such that excess exists
         let result = select_coin_fifo(inputs, options);
