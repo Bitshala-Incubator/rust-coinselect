@@ -124,15 +124,20 @@ pub fn select_coin_fifo(
     let mut accumulated_value: u64 = 0;
     let mut accumulated_weight: u32 = 0;
     let mut selected_inputs: Vec<usize> = Vec::new();
+    let mut estimated_fees: u64 = 0;
 
     // Sorting the inputs vector based on creation_sequence
 
     let mut sortedinputs = inputs.clone();
     sortedinputs.sort_by_key(|a| a.creation_sequence);
+
     for i in sortedinputs.iter() {
+        estimated_fees = (accumulated_weight as f32 * options.target_feerate).ceil() as u64;
         if accumulated_value
             >= (options.target_value
-                + (options.target_feerate * accumulated_weight as f32).ceil() as u64)
+                + options.target_value
+                + estimated_fees
+                + options.min_drain_value)
         {
             break;
         }
@@ -144,7 +149,6 @@ pub fn select_coin_fifo(
             break;
         }
     }
-    let estimated_fees = (accumulated_weight as f32 * options.target_feerate).ceil() as u64;
     if accumulated_value < options.target_value + estimated_fees + options.min_drain_value {
         Err(SelectionError::NoSolutionFound)
     } else {
@@ -303,7 +307,7 @@ mod test {
                 weight: 200,
                 input_count: 1,
                 is_segwit: false,
-                creation_sequence: Some(5),
+                creation_sequence: Some(5000),
             },
             OutputGroup {
                 value: 3000,
