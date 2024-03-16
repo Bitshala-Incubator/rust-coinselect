@@ -120,7 +120,56 @@ pub fn select_coin_fifo(
     options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    /* Using the value of the input as an identifier for the selected inputs, as the index of the vec<outputgroup> can't be used because the vector itself is sorted first. Ideally, txid of the input can serve as an unique identifier */
+    let mut accumulated_value: u64 = 0;
+    let mut accumulated_weight: u32 = 0;
+    let mut selected_inputs: Vec<usize> = Vec::new();
+    let mut estimated_fees: u64 = 0;
+
+    // Sorting the inputs vector based on creation_sequence
+
+    let mut sortedinputs = inputs.clone();
+    sortedinputs.sort_by_key(|a| a.creation_sequence);
+
+    for i in sortedinputs.iter() {
+        estimated_fees = (accumulated_weight as f32 * options.target_feerate).ceil() as u64;
+        if accumulated_value
+            >= (options.target_value
+                + options.target_value
+                + estimated_fees
+                + options.min_drain_value)
+        {
+            break;
+        }
+        accumulated_value += i.value;
+        accumulated_weight += i.weight;
+        if let Some(index) = inputs.iter().position(|x| x == i) {
+            selected_inputs.push(index);
+        } else {
+            break;
+        }
+    }
+    if accumulated_value < options.target_value + estimated_fees + options.min_drain_value {
+        Err(SelectionError::NoSolutionFound)
+    } else {
+        let mut waste_score: u64 = 0;
+        if options.excess_strategy == ExcessStrategy::ToDrain {
+            let waste_score: u64 = calculate_waste(
+                &inputs,
+                &selected_inputs,
+                &options,
+                accumulated_value,
+                accumulated_weight,
+                estimated_fees,
+            );
+        } else {
+            waste_score = 0;
+        }
+        Ok(SelectionOutput {
+            selected_inputs,
+            waste: WasteMetric(waste_score),
+        })
+    }
 }
 
 /// Perform Coinselection via Single Random Draw.
@@ -258,7 +307,7 @@ mod test {
                 weight: 200,
                 input_count: 1,
                 is_segwit: false,
-                creation_sequence: Some(5),
+                creation_sequence: Some(5000),
             },
             OutputGroup {
                 value: 3000,
