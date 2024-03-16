@@ -123,44 +123,56 @@ pub fn select_coin_fifo(
     inputs: Vec<OutputGroup>,
     options: CoinSelectionOpt,
     excess_strategy: ExcessStrategy,
-) -> Result<Option<(Vec<u64>, WasteMetric)>, SelectionError> {
+) -> Result<SelectionOutput, SelectionError> {
     /* Using the value of the input as an identifier for the selected inputs, as the index of the vec<outputgroup> can't be used because the vector itself is sorted first. Ideally, txid of the input can serve as an unique identifier */
-    let mut totalvalue: u64 = 0;
-    let mut totalweight: u32 = 0;
-    let mut selectedinputs: Vec<u64> = Vec::new();
+    let mut accumulated_value: u64 = 0;
+    let mut accumulated_weight: u32 = 0;
+    let mut selected_inputs: Vec<usize> = Vec::new();
+    let mut estimated_fees: u64 = 0;
 
     // Sorting the inputs vector based on creation_sequence
 
     let mut sortedinputs = inputs.clone();
     sortedinputs.sort_by_key(|a| a.creation_sequence);
-    for input in sortedinputs.iter() {
-        if totalvalue
-            >= (options.target_value + (options.target_feerate * totalweight as f32).ceil() as u64)
+
+    for i in sortedinputs.iter() {
+        estimated_fees = (accumulated_weight as f32 * options.target_feerate).ceil() as u64;
+        if accumulated_value
+            >= (options.target_value
+                + options.target_value
+                + estimated_fees
+                + options.min_drain_value)
         {
             break;
         }
-        totalvalue += input.value;
-        totalweight += input.weight;
-        selectedinputs.push(input.value);
+        accumulated_value += i.value;
+        accumulated_weight += i.weight;
+        if let Some(index) = inputs.iter().position(|x| x == i) {
+            selected_inputs.push(index);
+        } else {
+            break;
+        }
     }
-    let estimatedfees = (totalweight as f32 * options.target_feerate).ceil() as u64;
-    if totalvalue < options.target_value + estimatedfees + options.min_drain_value {
+    if accumulated_value < options.target_value + estimated_fees + options.min_drain_value {
         Err(SelectionError::NoSolutionFound)
     } else {
         let mut waste_score: u64 = 0;
-        if excess_strategy == ExcessStrategy::ToDrain {
-            let waste_score: u64 = calc_waste_metric(
-                totalweight,
-                options.target_feerate,
-                options.long_term_feerate,
-                options.drain_weight,
-                totalvalue,
-                options.target_value,
+        if options.excess_strategy == ExcessStrategy::ToDrain {
+            let waste_score: u64 = calculate_waste(
+                &inputs,
+                &selected_inputs,
+                &options,
+                accumulated_value,
+                accumulated_weight,
+                estimated_fees,
             );
         } else {
             waste_score = 0;
         }
-        Ok(Some((selectedinputs, WasteMetric(waste_score))))
+        Ok(SelectionOutput {
+            selected_inputs,
+            waste: WasteMetric(waste_score),
+        })
     }
 }
 
@@ -249,7 +261,7 @@ mod test {
                 weight: 200,
                 input_count: 1,
                 is_segwit: false,
-                creation_sequence: Some(5),
+                creation_sequence: Some(5000),
             },
             OutputGroup {
                 value: 3000,
