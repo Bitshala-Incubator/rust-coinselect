@@ -85,7 +85,7 @@ pub struct WasteMetric(u64);
 
 /// The result of selection algorithm
 pub struct SelectionOutput {
-    /// The selected input indices, refers to the indices of the inputs Slice Reference 
+    /// The selected input indices, refers to the indices of the inputs Slice Reference
     pub selected_inputs: Vec<usize>,
     /// The waste amount, for the above inputs
     pub waste: WasteMetric,
