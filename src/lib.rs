@@ -82,7 +82,7 @@ pub struct WasteMetric(u64);
 /// The result of selection algorithm
 #[derive(Debug)]
 pub struct SelectionOutput {
-    /// The selected input indices, refers to the indices of the original inputs Vec
+    /// The selected input indices, refers to the indices of the inputs Slice Reference
     pub selected_inputs: Vec<usize>,
     /// The waste amount, for the above inputs
     pub waste: WasteMetric,
@@ -90,7 +90,7 @@ pub struct SelectionOutput {
 
 /// Perform Coinselection via Branch And Bound algorithm.
 pub fn select_coin_bnb(
-    inputs: Vec<OutputGroup>,
+    inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
@@ -110,7 +110,7 @@ fn bnb(
 
 /// Perform Coinselection via Knapsack solver.
 pub fn select_coin_knapsack(
-    inputs: Vec<OutputGroup>,
+    inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
@@ -119,7 +119,7 @@ pub fn select_coin_knapsack(
 /// Perform Coinselection via Lowest Larger algorithm.
 /// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_lowestlarger(
-    inputs: Vec<OutputGroup>,
+    inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
@@ -130,7 +130,7 @@ pub fn select_coin_lowestlarger(
 /// Return NoSolutionFound, if no solution exists.
 
 pub fn select_coin_fifo(
-    inputs: Vec<OutputGroup>,
+    inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     let mut accumulated_value: u64 = 0;
@@ -187,17 +187,62 @@ pub fn select_coin_fifo(
 /// Perform Coinselection via Single Random Draw.
 /// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_srd(
-    inputs: Vec<OutputGroup>,
-    opitons: CoinSelectionOpt,
-    excess_strategy: ExcessStrategy,
+    inputs: &[OutputGroup],
+    options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    // Randomize the inputs order to simulate the random draw
+    let mut rng = thread_rng();
+
+    // In out put we need to specify the indexes of the inputs in the given order
+    // So keep track of the indexes when randomiz ing the vec
+    let mut randomized_inputs: Vec<_> = inputs.iter().enumerate().collect();
+
+    // Randomize the inputs order to simulate the random draw
+    let mut rng = thread_rng();
+    randomized_inputs.shuffle(&mut rng);
+
+    let mut accumulated_value = 0;
+    let mut selected_inputs = Vec::new();
+    let mut accumulated_weight = 0;
+    let mut estimated_fee = 0;
+    let mut input_counts = 0;
+
+    for (index, input) in randomized_inputs {
+        selected_inputs.push(index);
+        accumulated_value += input.value;
+        accumulated_weight += input.weight;
+        input_counts += input.input_count;
+
+        estimated_fee = (accumulated_weight as f32 * options.target_feerate).ceil() as u64;
+
+        if accumulated_value >= options.target_value + options.min_drain_value + estimated_fee {
+            break;
+        }
+    }
+
+    if accumulated_value < options.target_value + options.min_drain_value + estimated_fee {
+        return Err(SelectionError::InsufficientFunds);
+    }
+    // accumulated_weight += weightof(input_counts)?? TODO
+    let waste = calculate_waste(
+        inputs,
+        &selected_inputs,
+        &options,
+        accumulated_value,
+        accumulated_weight,
+        estimated_fee,
+    );
+
+    Ok(SelectionOutput {
+        selected_inputs,
+        waste: WasteMetric(waste),
+    })
 }
 
 /// The Global Coinselection API that performs all the algorithms and proudeces result with least [WasteMetric].
 /// At least one selection solution should be found.
 pub fn select_coin(
-    inputs: Vec<OutputGroup>,
+    inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     unimplemented!()
