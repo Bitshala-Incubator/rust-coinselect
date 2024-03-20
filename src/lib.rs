@@ -218,12 +218,20 @@ pub fn select_coin_srd(
 
         estimated_fee = calculate_fee(accumulated_weight, options.target_feerate);
 
-        if accumulated_value >= options.target_value + options.min_drain_value + estimated_fee {
+        if accumulated_value
+            >= options.target_value
+                + options.min_drain_value
+                + estimated_fee.max(options.min_absolute_fee)
+        {
             break;
         }
     }
 
-    if accumulated_value < options.target_value + options.min_drain_value + estimated_fee {
+    if accumulated_value
+        < options.target_value
+            + options.min_drain_value
+            + estimated_fee.max(options.min_absolute_fee)
+    {
         return Err(SelectionError::InsufficientFunds);
     }
     // accumulated_weight += weightof(input_counts)?? TODO
