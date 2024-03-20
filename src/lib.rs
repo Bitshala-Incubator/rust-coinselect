@@ -119,6 +119,16 @@ pub fn select_coin_knapsack(
     unimplemented!()
 }
 
+/// adjusted_target should be target value plus estimated fee
+/// smaller_coins is a slice of pair where the usize refers to the index of the OutputGroup in the inputs given
+/// smaller_coins should be sorted in descending order based on the value of the OutputGroup, and every OutputGroup value should be less than adjusted_target
+fn knap_sack(
+    adjusted_target: u64,
+    smaller_coins: &[(usize, OutputGroup)],
+) -> Result<SelectionOutput, SelectionError> {
+    unimplemented!()
+}
+
 /// Perform Coinselection via Lowest Larger algorithm.
 /// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_lowestlarger(
@@ -234,6 +244,11 @@ fn calculate_waste(
 #[inline]
 fn calculate_fee(weight: u32, rate: f32) -> u64 {
     (weight as f32 * rate).ceil() as u64
+}
+
+/// Returns the effective value which is the actual value minus the estimated fee of the OutputGroup
+fn effective_value(output: &OutputGroup, option: &CoinSelectionOpt) -> u64 {
+    unimplemented!()
 }
 
 #[cfg(test)]
