@@ -206,13 +206,17 @@ pub fn select_coin_srd(
     let mut estimated_fee = 0;
     let mut input_counts = 0;
 
+    let necessary_target = options.target_value
+        + options.min_drain_value
+        + calculate_fee(options.base_weight, options.target_feerate);
+
     for (index, input) in randomized_inputs {
         selected_inputs.push(index);
         accumulated_value += input.value;
         accumulated_weight += input.weight;
         input_counts += input.input_count;
 
-        estimated_fee = (accumulated_weight as f32 * options.target_feerate).ceil() as u64;
+        estimated_fee = calculate_fee(accumulated_weight, options.target_feerate);
 
         if accumulated_value >= options.target_value + options.min_drain_value + estimated_fee {
             break;
@@ -271,6 +275,11 @@ fn calculate_waste(
     }
 
     waste
+}
+
+#[inline]
+fn calculate_fee(weight: u32, rate: f32) -> u64 {
+    (weight as f32 * rate).ceil() as u64
 }
 
 #[cfg(test)]
