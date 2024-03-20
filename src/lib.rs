@@ -119,6 +119,8 @@ pub fn select_coin_knapsack(
     unimplemented!()
 }
 
+fn kanpsack() {}
+
 /// Perform Coinselection via Lowest Larger algorithm.
 /// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_lowestlarger(
@@ -148,7 +150,7 @@ pub fn select_coin_srd(
 
     // In out put we need to specify the indexes of the inputs in the given order
     // So keep track of the indexes when randomiz ing the vec
-    let mut randomized_inputs: Vec<_> = inputs.iter().enumerate().collect();
+    let mut randomized_inputs: Vec<(usize, &OutputGroup)> = inputs.iter().enumerate().collect();
 
     // Randomize the inputs order to simulate the random draw
     let mut rng = thread_rng();
@@ -160,6 +162,10 @@ pub fn select_coin_srd(
     let mut estimated_fee = 0;
     let mut input_counts = 0;
 
+    let necessary_target = options.target_value
+        + options.min_drain_value
+        + (options.base_weight as f32 * options.target_feerate).ceil() as u64;
+
     for (index, input) in randomized_inputs {
         selected_inputs.push(index);
         accumulated_value += input.value;
@@ -168,12 +174,12 @@ pub fn select_coin_srd(
 
         estimated_fee = (accumulated_weight as f32 * options.target_feerate).ceil() as u64;
 
-        if accumulated_value >= options.target_value + options.min_drain_value + estimated_fee {
+        if accumulated_value >= necessary_target + estimated_fee.max(options.min_absolute_fee) {
             break;
         }
     }
 
-    if accumulated_value < options.target_value + options.min_drain_value + estimated_fee {
+    if accumulated_value < necessary_target + estimated_fee.max(options.min_absolute_fee) {
         return Err(SelectionError::InsufficientFunds);
     }
     // accumulated_weight += weightof(input_counts)?? TODO
