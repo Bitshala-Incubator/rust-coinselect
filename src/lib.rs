@@ -8,7 +8,7 @@ use rand::{seq::SliceRandom, thread_rng};
 /// single UTXO, or a group of UTXOs that should be spent together.
 /// The library user is responsible for crafting this structure correctly. Incorrect representation of this
 /// structure will cause incorrect selection result.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub struct OutputGroup {
     /// Total value of the UTXO(s) that this [`WeightedValue`] represents.
     pub value: u64,
@@ -142,10 +142,11 @@ pub fn select_coin_fifo(
 
     // Sorting the inputs vector based on creation_sequence
 
-    let mut sortedinputs = inputs.clone();
-    sortedinputs.sort_by_key(|a| a.creation_sequence);
+    let mut sorted_inputs: Vec<_> = inputs.iter().enumerate().collect();
 
-    for i in sortedinputs.iter() {
+    sorted_inputs.sort_by_key(|(_, a)| a.creation_sequence);
+
+    for (index, inputs) in sorted_inputs {
         estimated_fees = (accumulated_weight as f32 * options.target_feerate).ceil() as u64;
         if accumulated_value
             >= (options.target_value
@@ -155,13 +156,9 @@ pub fn select_coin_fifo(
         {
             break;
         }
-        accumulated_value += i.value;
-        accumulated_weight += i.weight;
-        if let Some(index) = inputs.iter().position(|x| x == i) {
-            selected_inputs.push(index);
-        } else {
-            break;
-        }
+        accumulated_value += inputs.value;
+        accumulated_weight += inputs.weight;
+        selected_inputs.push(index);
     }
     if accumulated_value < options.target_value + estimated_fees + options.min_drain_value {
         Err(SelectionError::NoSolutionFound)
@@ -169,7 +166,7 @@ pub fn select_coin_fifo(
         let mut waste_score: u64 = 0;
         if options.excess_strategy == ExcessStrategy::ToDrain {
             let waste_score: u64 = calculate_waste(
-                &inputs,
+                inputs,
                 &selected_inputs,
                 &options,
                 accumulated_value,
@@ -382,7 +379,7 @@ mod test {
     fn test_successful_fifo_selection() {
         let inputs = setup_fifo_output_groups();
         let options = setup_options(500); // Seting up target value such that excess exists
-        let result = select_coin_fifo(inputs, options);
+        let result = select_coin_fifo(&inputs, options);
         let selection_output = result.unwrap();
         println!("{:?}", selection_output);
         //assert!(!selection_output.selected_inputs.is_empty());
