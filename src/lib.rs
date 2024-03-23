@@ -8,7 +8,7 @@ use rand::{seq::SliceRandom, thread_rng};
 /// single UTXO, or a group of UTXOs that should be spent together.
 /// The library user is responsible for crafting this structure correctly. Incorrect representation of this
 /// structure will cause incorrect selection result.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub struct OutputGroup {
     /// Total value of the UTXO(s) that this [`WeightedValue`] represents.
     pub value: u64,
