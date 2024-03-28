@@ -351,12 +351,11 @@ mod test {
         assert!(!selection_output.selected_inputs.is_empty());
 
         inputs = setup_output_groups_withsequence();
-        options=setup_options(500);
+        options = setup_options(500);
         result = select_coin_fifo(&inputs, options);
         assert!(result.is_ok());
         selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
-
     }
 
     fn test_insufficient_funds() {
