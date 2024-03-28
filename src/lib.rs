@@ -221,11 +221,19 @@ pub fn select_coin_fifo(
         selected_inputs.push(index);
     }
     if accumulated_value
+<<<<<<< HEAD
         < (options.target_value
             + estimated_fees.max(options.min_absolute_fee)
             + options.min_drain_value)
     {
         Err(SelectionError::InsufficientFunds)
+=======
+        < options.target_value
+            + estimated_fees.max(options.min_absolute_fee)
+            + options.min_drain_value
+    {
+        Err(SelectionError::NoSolutionFound)
+>>>>>>> 10a6cf1 (removed redundat codes and replaced them with utility functions.)
     } else {
         let waste: u64 = calculate_waste(
             inputs,
