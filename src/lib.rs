@@ -296,7 +296,7 @@ mod test {
             },
         ]
     }
-    fn setup_fifo_output_groups() -> Vec<OutputGroup> {
+    fn setup_output_groups_withsequence() -> Vec<OutputGroup> {
         vec![
             OutputGroup {
                 value: 1000,
@@ -343,12 +343,20 @@ mod test {
     }
 
     fn test_successful_selection() {
-        let inputs = setup_basic_output_groups();
-        let options = setup_options(2500);
-        let result = select_coin_srd(&inputs, options);
+        let mut inputs = setup_basic_output_groups();
+        let mut options = setup_options(2500);
+        let mut result = select_coin_srd(&inputs, options);
         assert!(result.is_ok());
-        let selection_output = result.unwrap();
+        let mut selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
+
+        inputs = setup_output_groups_withsequence();
+        options=setup_options(500);
+        result = select_coin_fifo(&inputs, options);
+        assert!(result.is_ok());
+        selection_output = result.unwrap();
+        assert!(!selection_output.selected_inputs.is_empty());
+
     }
 
     fn test_insufficient_funds() {
@@ -369,31 +377,9 @@ mod test {
     }
 
     #[test]
-    fn test_successful_fifo_selection() {
-        let inputs = setup_fifo_output_groups();
-        let options = setup_options(500); // Seting up target value such that excess exists
-        let result = select_coin_fifo(&inputs, options);
-        let selection_output = result.unwrap();
-        println!("{:?}", selection_output);
-        //assert!(!selection_output.selected_inputs.is_empty());
-    }
     fn test_fifo() {
-        // Test for Empty Values
-        let inputs = vec![];
-        let options = CoinSelectionOpt {
-            target_value: 0,
-            target_feerate: 0.0,
-            long_term_feerate: None,
-            min_absolute_fee: 0,
-            base_weight: 0,
-            drain_weight: 0,
-            spend_drain_weight: 0,
-            min_drain_value: 0,
-        };
-        let excess_strategy = ExcessStrategy::ToFee;
-        let result = select_coin_fifo(inputs, options, excess_strategy);
-        // Check if select_coin_fifo() returns the correct type
-        assert!(result.is_ok());
+        test_successful_selection();
+        test_insufficient_funds();
     }
 
     #[test]
