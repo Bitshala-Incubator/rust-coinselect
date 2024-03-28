@@ -145,7 +145,7 @@ pub fn select_coin_fifo(
     sorted_inputs.sort_by_key(|(_, a)| a.creation_sequence);
 
     for (index, inputs) in sorted_inputs {
-        estimated_fees = (accumulated_weight as f32 * options.target_feerate).ceil() as u64;
+        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
         if accumulated_value
             >= (options.target_value
                 + options.target_value
@@ -158,25 +158,24 @@ pub fn select_coin_fifo(
         accumulated_weight += inputs.weight;
         selected_inputs.push(index);
     }
-    if accumulated_value < options.target_value + estimated_fees + options.min_drain_value {
+    if accumulated_value
+        < options.target_value
+            + estimated_fees.max(options.min_absolute_fee)
+            + options.min_drain_value
+    {
         Err(SelectionError::NoSolutionFound)
     } else {
-        let mut waste_score: u64 = 0;
-        if options.excess_strategy == ExcessStrategy::ToDrain {
-            let waste_score: u64 = calculate_waste(
-                inputs,
-                &selected_inputs,
-                &options,
-                accumulated_value,
-                accumulated_weight,
-                estimated_fees,
-            );
-        } else {
-            waste_score = 0;
-        }
+        let waste: u64 = calculate_waste(
+            inputs,
+            &selected_inputs,
+            &options,
+            accumulated_value,
+            accumulated_weight,
+            estimated_fees,
+        );
         Ok(SelectionOutput {
             selected_inputs,
-            waste: WasteMetric(waste_score),
+            waste: WasteMetric(waste),
         })
     }
 }
