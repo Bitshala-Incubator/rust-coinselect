@@ -163,7 +163,7 @@ pub fn select_coin_fifo(
             + estimated_fees.max(options.min_absolute_fee)
             + options.min_drain_value
     {
-        Err(SelectionError::NoSolutionFound)
+        Err(SelectionError::InsufficientFunds)
     } else {
         let waste: u64 = calculate_waste(
             inputs,
