@@ -148,8 +148,7 @@ pub fn select_coin_fifo(
         estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
         if accumulated_value
             >= (options.target_value
-                + options.target_value
-                + estimated_fees
+                + estimated_fees.max(options.min_absolute_fee)
                 + options.min_drain_value)
         {
             break;
@@ -159,9 +158,9 @@ pub fn select_coin_fifo(
         selected_inputs.push(index);
     }
     if accumulated_value
-        < options.target_value
+        < (options.target_value
             + estimated_fees.max(options.min_absolute_fee)
-            + options.min_drain_value
+            + options.min_drain_value)
     {
         Err(SelectionError::InsufficientFunds)
     } else {
