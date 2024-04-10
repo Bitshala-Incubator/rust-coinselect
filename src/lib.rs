@@ -84,6 +84,7 @@ pub enum SelectionError {
 pub struct WasteMetric(u64);
 
 /// The result of selection algorithm
+#[derive(Debug)]
 pub struct SelectionOutput {
     /// The selected input indices, refers to the indices of the inputs Slice Reference
     pub selected_inputs: Vec<usize>,
@@ -144,7 +145,50 @@ pub fn select_coin_fifo(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    let mut accumulated_value: u64 = 0;
+    let mut accumulated_weight: u32 = 0;
+    let mut selected_inputs: Vec<usize> = Vec::new();
+    let mut estimated_fees: u64 = 0;
+
+    // Sorting the inputs vector based on creation_sequence
+
+    let mut sorted_inputs: Vec<_> = inputs.iter().enumerate().collect();
+
+    sorted_inputs.sort_by_key(|(_, a)| a.creation_sequence);
+
+    for (index, inputs) in sorted_inputs {
+        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
+        if accumulated_value
+            >= (options.target_value
+                + estimated_fees.max(options.min_absolute_fee)
+                + options.min_drain_value)
+        {
+            break;
+        }
+        accumulated_value += inputs.value;
+        accumulated_weight += inputs.weight;
+        selected_inputs.push(index);
+    }
+    if accumulated_value
+        < (options.target_value
+            + estimated_fees.max(options.min_absolute_fee)
+            + options.min_drain_value)
+    {
+        Err(SelectionError::InsufficientFunds)
+    } else {
+        let waste: u64 = calculate_waste(
+            inputs,
+            &selected_inputs,
+            &options,
+            accumulated_value,
+            accumulated_weight,
+            estimated_fees,
+        );
+        Ok(SelectionOutput {
+            selected_inputs,
+            waste: WasteMetric(waste),
+        })
+    }
 }
 
 /// Perform Coinselection via Single Random Draw.
@@ -289,7 +333,31 @@ mod test {
             },
         ]
     }
-
+    fn setup_output_groups_withsequence() -> Vec<OutputGroup> {
+        vec![
+            OutputGroup {
+                value: 1000,
+                weight: 100,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: Some(1),
+            },
+            OutputGroup {
+                value: 2000,
+                weight: 200,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: Some(5000),
+            },
+            OutputGroup {
+                value: 3000,
+                weight: 300,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: Some(1001),
+            },
+        ]
+    }
     fn setup_options(target_value: u64) -> CoinSelectionOpt {
         CoinSelectionOpt {
             target_value,
@@ -312,11 +380,18 @@ mod test {
     }
 
     fn test_successful_selection() {
-        let inputs = setup_basic_output_groups();
-        let options = setup_options(2500);
-        let result = select_coin_srd(&inputs, options);
+        let mut inputs = setup_basic_output_groups();
+        let mut options = setup_options(2500);
+        let mut result = select_coin_srd(&inputs, options);
         assert!(result.is_ok());
-        let selection_output = result.unwrap();
+        let mut selection_output = result.unwrap();
+        assert!(!selection_output.selected_inputs.is_empty());
+
+        inputs = setup_output_groups_withsequence();
+        options = setup_options(500);
+        result = select_coin_fifo(&inputs, options);
+        assert!(result.is_ok());
+        selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
     }
 
@@ -339,7 +414,8 @@ mod test {
 
     #[test]
     fn test_fifo() {
-        // Perform FIFO selection of set of test values.
+        test_successful_selection();
+        test_insufficient_funds();
     }
 
     #[test]
