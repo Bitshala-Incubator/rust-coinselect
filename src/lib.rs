@@ -1,6 +1,9 @@
 #![allow(unused)]
 
 //! A blockchain-agnostic Rust Coinselection library
+
+use rand::{seq::SliceRandom, thread_rng};
+
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
 /// The library user is responsible for crafting this structure correctly. Incorrect representation of this
@@ -23,6 +26,7 @@ pub struct OutputGroup {
     /// To denote the oldest utxo group, give them a sequence number of Some(0).
     pub creation_sequence: Option<u32>,
 }
+
 /// A set of Options that guides the CoinSelection algorithms. These are inputs specified by the
 /// user to perform coinselection to achieve a set a target parameters.
 #[derive(Debug, Clone, Copy)]
@@ -59,7 +63,7 @@ pub struct CoinSelectionOpt {
 }
 
 /// Strategy to decide what to do with the excess amount.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExcessStrategy {
     ToFee,
     ToRecipient,
@@ -116,6 +120,16 @@ pub fn select_coin_knapsack(
     unimplemented!()
 }
 
+/// adjusted_target should be target value plus estimated fee
+/// smaller_coins is a slice of pair where the usize refers to the index of the OutputGroup in the inputs given
+/// smaller_coins should be sorted in descending order based on the value of the OutputGroup, and every OutputGroup value should be less than adjusted_target
+fn knap_sack(
+    adjusted_target: u64,
+    smaller_coins: &[(usize, OutputGroup)],
+) -> Result<SelectionOutput, SelectionError> {
+    unimplemented!()
+}
+
 /// Perform Coinselection via Lowest Larger algorithm.
 /// Return NoSolutionFound, if no solution exists.
 pub fn select_coin_lowestlarger(
@@ -126,9 +140,7 @@ pub fn select_coin_lowestlarger(
 }
 
 /// Perform Coinselection via First-In-First-Out algorithm.
-
 /// Return NoSolutionFound, if no solution exists.
-
 pub fn select_coin_fifo(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
@@ -202,20 +214,32 @@ pub fn select_coin_srd(
     let mut estimated_fee = 0;
     let mut input_counts = 0;
 
+    let necessary_target = options.target_value
+        + options.min_drain_value
+        + calculate_fee(options.base_weight, options.target_feerate);
+
     for (index, input) in randomized_inputs {
         selected_inputs.push(index);
         accumulated_value += input.value;
         accumulated_weight += input.weight;
         input_counts += input.input_count;
 
-        estimated_fee = (accumulated_weight as f32 * options.target_feerate).ceil() as u64;
+        estimated_fee = calculate_fee(accumulated_weight, options.target_feerate);
 
-        if accumulated_value >= options.target_value + options.min_drain_value + estimated_fee {
+        if accumulated_value
+            >= options.target_value
+                + options.min_drain_value
+                + estimated_fee.max(options.min_absolute_fee)
+        {
             break;
         }
     }
 
-    if accumulated_value < options.target_value + options.min_drain_value + estimated_fee {
+    if accumulated_value
+        < options.target_value
+            + options.min_drain_value
+            + estimated_fee.max(options.min_absolute_fee)
+    {
         return Err(SelectionError::InsufficientFunds);
     }
     // accumulated_weight += weightof(input_counts)?? TODO
@@ -243,27 +267,42 @@ pub fn select_coin(
     unimplemented!()
 }
 
-pub fn calc_waste_metric(
-    inp_weight: u32,
-    target_feerate: f32,
-    longterm_feerate: Option<f32>,
-    drain_weight: u32,
-    totalvalue: u64,
-    target_value: u64,
+#[inline]
+fn calculate_waste(
+    inputs: &[OutputGroup],
+    selected_inputs: &[usize],
+    options: &CoinSelectionOpt,
+    accumulated_value: u64,
+    accumulated_weight: u32,
+    estimated_fee: u64,
 ) -> u64 {
-    match longterm_feerate {
-        Some(fee) => {
-            let change: f32 = drain_weight as f32 * fee;
-            let excess: u64 = totalvalue - target_value;
+    let mut waste: u64 = 0;
 
-            (inp_weight as f32 * (target_feerate - fee) + change + excess as f32).ceil() as u64
-        }
-        None => {
-            let waste_score: u64 = 0;
-            waste_score
-        }
+    if let Some(long_term_feerate) = options.long_term_feerate {
+        waste += (estimated_fee as f32
+            - selected_inputs.len() as f32 * long_term_feerate * accumulated_weight as f32)
+            .ceil() as u64;
     }
+
+    if options.excess_strategy != ExcessStrategy::ToDrain {
+        waste += accumulated_value - options.target_value - estimated_fee;
+    } else {
+        waste += options.drain_cost;
+    }
+
+    waste
 }
+
+#[inline]
+fn calculate_fee(weight: u32, rate: f32) -> u64 {
+    (weight as f32 * rate).ceil() as u64
+}
+
+/// Returns the effective value which is the actual value minus the estimated fee of the OutputGroup
+fn effective_value(output: &OutputGroup, option: &CoinSelectionOpt) -> u64 {
+    unimplemented!()
+}
+
 #[cfg(test)]
 mod test {
 
