@@ -27,17 +27,6 @@ pub struct OutputGroup {
     /// To denote the oldest utxo group, give them a sequence number of Some(0).
     pub creation_sequence: Option<u32>,
 }
-// impl PartialEq for OutputGroup {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.value == other.value &&
-//         self.weight == other.weight &&
-//         self.input_count == other.input_count &&
-//         self.is_segwit == other.is_segwit &&
-//         self.creation_sequence == other.creation_sequence
-//     }
-// }
-/// A set of Options that guides the CoinSelection algorithms. These are inputs specified by the
-/// user to perform coinselection to achieve a set a target parameters.
 #[derive(Debug, Clone, Copy)]
 pub struct CoinSelectionOpt {
     /// The value we need to select.
@@ -190,7 +179,7 @@ fn knap_sack(
                             if accumulated_value < best_set_value {
                                 // New best_set found
                                 best_set_value = accumulated_value;
-                                best_set = selected_inputs.clone();
+                                best_set.clone_from(&selected_inputs);
                                 // Removing the last UTXO that raised selection_sum above adjusted_target to try to find a smaller set
                                 selected_inputs.pop();
                                 accumulated_value -= u.value;
