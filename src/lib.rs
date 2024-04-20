@@ -634,6 +634,24 @@ mod test {
         let result = select_coin_srd(&inputs, options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
+
+    fn test_exact_match_knapsack() {
+        let mut inputs = setup_basic_output_groups();
+        let mut options = setup_options(2495); //Set target value to match the available utxos, target fee rate, base weight
+        let mut result = select_coin_knapsack(&inputs, options);
+        assert!(result.is_ok());
+        let mut selection_output = result.unwrap();
+        assert!(!selection_output.selected_inputs.is_empty());
+    }
+
+    fn test_nonexact_match_knapsack() {
+        let mut inputs = setup_basic_output_groups();
+        let mut options = setup_options(2500); //Set target value to match the available utxos, target fee rate, base weight
+        let mut result = select_coin_knapsack(&inputs, options);
+        assert!(result.is_ok());
+        let mut selection_output = result.unwrap();
+        assert!(!selection_output.selected_inputs.is_empty());
+    }
     #[test]
     fn test_srd() {
         test_successful_selection();
@@ -642,7 +660,9 @@ mod test {
 
     #[test]
     fn test_knapsack() {
-        // Perform Knapsack selection of set of test values.
+        // Perform test for exact match
+        test_exact_match_knapsack();
+        test_nonexact_match_knapsack();
     }
 
     #[test]
