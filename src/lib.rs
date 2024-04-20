@@ -2,7 +2,8 @@
 
 //! A blockchain-agnostic Rust Coinselection library
 
-use rand::{seq::SliceRandom, thread_rng};
+use rand::{seq::SliceRandom, thread_rng, Rng};
+use std::cmp::Reverse;
 
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
@@ -26,6 +27,15 @@ pub struct OutputGroup {
     /// To denote the oldest utxo group, give them a sequence number of Some(0).
     pub creation_sequence: Option<u32>,
 }
+// impl PartialEq for OutputGroup {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.value == other.value &&
+//         self.weight == other.weight &&
+//         self.input_count == other.input_count &&
+//         self.is_segwit == other.is_segwit &&
+//         self.creation_sequence == other.creation_sequence
+//     }
+// }
 /// A set of Options that guides the CoinSelection algorithms. These are inputs specified by the
 /// user to perform coinselection to achieve a set a target parameters.
 #[derive(Debug, Clone, Copy)]
@@ -116,7 +126,19 @@ pub fn select_coin_knapsack(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    let mut adjusted_target = options.target_value
+        + options.min_drain_value
+        + calculate_fee(options.base_weight, options.target_feerate);
+    let mut smaller_coins = inputs
+        .iter()
+        .enumerate()
+        .filter(|&(index, output_group)| output_group.value < adjusted_target)
+        .map(|(index, output_group)| (index, *output_group))
+        .collect::<Vec<_>>();
+    // Sorting smaller_coins in descending order
+    smaller_coins.sort_by_key(|&(_, output_group)| Reverse(output_group.value));
+
+    knap_sack(adjusted_target, &smaller_coins, inputs, options)
 }
 
 /// adjusted_target should be target value plus estimated fee
@@ -125,8 +147,74 @@ pub fn select_coin_knapsack(
 fn knap_sack(
     adjusted_target: u64,
     smaller_coins: &[(usize, OutputGroup)],
+    inputs: &[OutputGroup],
+    options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    let mut target_reached = false;
+    let mut selected_inputs: Vec<usize> = Vec::new();
+    let mut accumulated_value: u64 = 0;
+    let mut accumulated_weight: u32 = 0;
+    let mut best_set: Vec<usize> = Vec::new();
+    let mut best_set_value: u64 = u64::MAX;
+    for i in 1..=1000 {
+        for j in 1..=2 {
+            if !target_reached {
+                for &(index, u) in smaller_coins {
+                    //Simulate a coin toss
+                    let mut rng = thread_rng();
+                    let prob = 0.5;
+                    let toss_result: bool = rng.gen_bool(prob);
+                    if (j == 2 && !selected_inputs.contains(&index)) || (j == 1 && toss_result) {
+                        // Including the UTXO in the selected inputs
+                        selected_inputs.push(index);
+                        accumulated_value += u.value;
+                        accumulated_weight += u.weight;
+                        if accumulated_value == adjusted_target {
+                            // Perfect Match, Return the vector selected_inputs
+                            let estimated_fees =
+                                calculate_fee(accumulated_weight, options.target_feerate);
+                            let waste: u64 = calculate_waste(
+                                inputs,
+                                &selected_inputs,
+                                &options,
+                                accumulated_value,
+                                accumulated_weight,
+                                estimated_fees,
+                            );
+                            return Ok(SelectionOutput {
+                                selected_inputs,
+                                waste: WasteMetric(waste),
+                            });
+                        } else if accumulated_value >= adjusted_target {
+                            target_reached = true;
+                            if accumulated_value < best_set_value {
+                                // New best_set found
+                                best_set_value = accumulated_value;
+                                best_set = selected_inputs.clone();
+                                // Removing the last UTXO that raised selection_sum above adjusted_target to try to find a smaller set
+                                selected_inputs.pop();
+                                accumulated_value -= u.value;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // Best set of UTXOs after 1000 tries
+    let estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
+    let waste: u64 = calculate_waste(
+        inputs,
+        &selected_inputs,
+        &options,
+        accumulated_value,
+        accumulated_weight,
+        estimated_fees,
+    );
+    Ok(SelectionOutput {
+        selected_inputs,
+        waste: WasteMetric(waste),
+    })
 }
 
 /// Perform Coinselection via Lowest Larger algorithm.
