@@ -136,7 +136,74 @@ pub fn select_coin_lowestlarger(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    let mut accumulated_value: u64 = 0;
+    let mut accumulated_weight: u32 = 0;
+    let mut selected_inputs: Vec<usize> = Vec::new();
+    let mut estimated_fees: u64 = 0;
+
+    let mut sorted_inputs: Vec<_> = inputs.iter().enumerate().collect();
+    sorted_inputs.sort_by_key(|(_, a)| std::cmp::Reverse(a.value));
+
+    let mut target = options.target_value + options.min_drain_value;
+    let mut min_idx = 0;
+
+    for (index, input) in &sorted_inputs {
+        let fees = calculate_fee(input.weight, options.target_feerate);
+        if target + fees.max(options.min_absolute_fee) >= input.value {
+            target = target - input.value + fees;
+            accumulated_value += input.value;
+            accumulated_weight += input.weight;
+            estimated_fees += fees;
+            selected_inputs.push(*index);
+            min_idx += 1;
+        } else {
+            let mut max_idx: usize = sorted_inputs.len() - 1;
+            let mut lowest_larger_index = 0;
+            let mut value = 0;
+            let mut weight = 0;
+
+            while (min_idx <= max_idx) {
+                let mid_idx = (min_idx + max_idx) / 2;
+                let (index, input) = sorted_inputs[mid_idx];
+                let fees = calculate_fee(input.weight, options.target_feerate);
+
+                if target + fees.max(options.min_absolute_fee) <= input.value {
+                    lowest_larger_index = index;
+                    value = input.value;
+                    weight = input.weight;
+                    min_idx = mid_idx + 1;
+                } else {
+                    max_idx = mid_idx - 1;
+                }
+            }
+            accumulated_value += value;
+            accumulated_weight += weight;
+            estimated_fees += fees;
+            selected_inputs.push(lowest_larger_index);
+            break;
+        }
+    }
+
+    if accumulated_value
+        < (options.target_value
+            + estimated_fees.max(options.min_absolute_fee)
+            + options.min_drain_value)
+    {
+        Err(SelectionError::InsufficientFunds)
+    } else {
+        let waste: u64 = calculate_waste(
+            inputs,
+            &selected_inputs,
+            &options,
+            accumulated_value,
+            accumulated_weight,
+            estimated_fees,
+        );
+        Ok(SelectionOutput {
+            selected_inputs,
+            waste: WasteMetric(waste),
+        })
+    }
 }
 
 /// Perform Coinselection via First-In-First-Out algorithm.
@@ -358,6 +425,94 @@ mod test {
             },
         ]
     }
+    fn setup_lowestlarger_output_groups() -> Vec<OutputGroup> {
+        vec![
+            OutputGroup {
+                value: 100,
+                weight: 100,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 1500,
+                weight: 200,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 3400,
+                weight: 300,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 2200,
+                weight: 150,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 1190,
+                weight: 200,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 3300,
+                weight: 100,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 1000,
+                weight: 190,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 2000,
+                weight: 210,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 3000,
+                weight: 300,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 2250,
+                weight: 250,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 190,
+                weight: 220,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 1750,
+                weight: 170,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+        ]
+    }
     fn setup_options(target_value: u64) -> CoinSelectionOpt {
         CoinSelectionOpt {
             target_value,
@@ -419,7 +574,24 @@ mod test {
     }
 
     #[test]
-    fn test_lowestlarger() {
-        // Perform LowestLarger selection of set of test values.
+    fn test_lowestlarger_successful() {
+        let mut inputs = setup_lowestlarger_output_groups();
+        let mut options = setup_options(20000);
+        let result = select_coin_lowestlarger(&inputs, options);
+        assert!(result.is_ok());
+        let selection_output = result.unwrap();
+        assert!(!selection_output.selected_inputs.is_empty());
+        assert_eq!(
+            selection_output.selected_inputs,
+            vec![2, 5, 8, 9, 3, 7, 11, 1, 4, 6]
+        );
+    }
+
+    #[test]
+    fn test_lowestlarger_insufficient() {
+        let mut inputs = setup_lowestlarger_output_groups();
+        let mut options = setup_options(40000);
+        let result = select_coin_lowestlarger(&inputs, options);
+        assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
 }
