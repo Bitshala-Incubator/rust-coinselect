@@ -348,7 +348,7 @@ fn calculate_fee(weight: u32, rate: f32) -> u64 {
 
 /// Returns the effective value which is the actual value minus the estimated fee of the OutputGroup
 fn effective_value(output: &OutputGroup, option: &CoinSelectionOpt) -> u64 {
-    unimplemented!()
+    output.value - calculate_fee(output.weight, option.target_feerate)
 }
 
 #[cfg(test)]
