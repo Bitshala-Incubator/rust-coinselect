@@ -160,12 +160,16 @@ pub fn select_coin_lowestlarger(
         }
     }
 
-    for (idx, input) in sorted_inputs.iter().skip(index) {
-        if accumulated_value < (target + estimated_fees.max(options.min_absolute_fee)) {
+    if accumulated_value < (target + estimated_fees.max(options.min_absolute_fee)) {
+        for (idx, input) in sorted_inputs.iter().skip(index) {
             accumulated_value += input.value;
             accumulated_weight += input.weight;
             estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
             selected_inputs.push(*idx);
+
+            if accumulated_value >= (target + estimated_fees.max(options.min_absolute_fee)) {
+                break;
+            }
         }
     }
 
