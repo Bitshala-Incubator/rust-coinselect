@@ -353,7 +353,9 @@ fn calculate_fee(weight: u32, rate: f32) -> u64 {
 /// Returns the effective value which is the actual value minus the estimated fee of the OutputGroup
 #[inline]
 fn effective_value(output: &OutputGroup, feerate: f32) -> u64 {
-    output.value - calculate_fee(output.weight, feerate)
+    output
+        .value
+        .saturating_sub(calculate_fee(output.weight, feerate))
 }
 
 #[cfg(test)]
