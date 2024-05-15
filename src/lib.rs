@@ -578,4 +578,97 @@ mod test {
         let result = select_coin_lowestlarger(&inputs, options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
+
+    #[test]
+    fn test_calculate_fee(){
+        let fee = calculate_fee(60, 5.0);
+        assert_eq!(fee, 300)
+    }
+
+    #[test]
+    fn test_effective_value_when_less_than_zero(){
+       let output = OutputGroup {
+        value: 100,
+        weight: 101,
+        input_count: 1,
+        is_segwit: false,
+        creation_sequence: None,
+    };
+       let feerate = 1.0;
+       let effective_value = effective_value(&output, feerate);
+       // 100 -101 will equal zero because effective_value uses u64.saturating_sub()
+       assert_eq!(effective_value, 0)
+
+    }
+
+    #[test]
+    fn test_effective_value_when_greater_than_zero(){
+        let output = OutputGroup {
+         value: 100,
+         weight: 99,
+         input_count: 1,
+         is_segwit: false,
+         creation_sequence: None,
+     };
+        let feerate = 1.0;
+        let effective_value = effective_value(&output, feerate);
+        assert_eq!(effective_value, 1)
+ 
+     }
+
+     #[test]
+     fn test_calculate_waste_to_drain(){
+        let inputs = setup_basic_output_groups();
+        let options = setup_options(100);
+        let selection_output = select_coin_lowestlarger(&inputs, options).unwrap();
+        let accumulated_value = 1000;
+        let accumulated_weight = 50;
+        let estimated_fee = 20;
+
+        let waste = calculate_waste(
+            &inputs,
+            &selection_output.selected_inputs,
+            &options,
+            accumulated_value,
+            accumulated_weight,
+            estimated_fee,
+        );
+
+        assert_eq!(waste, options.drain_cost)
+     }
+
+     #[test]   
+     fn test_calculate_waste_to_miner(){
+        let inputs = setup_basic_output_groups();
+        let options = CoinSelectionOpt{
+            target_value: 1000,
+            target_feerate: 0.5, // Simplified feerate
+            long_term_feerate: None,
+            min_absolute_fee: 0,
+            base_weight: 10,
+            drain_weight: 50,
+            drain_cost: 10,
+            cost_per_input: 20,
+            cost_per_output: 10,
+            min_drain_value: 500,
+            excess_strategy: ExcessStrategy::ToFee,
+
+        };
+
+        let selection_output = select_coin_lowestlarger(&inputs, options).unwrap();
+        let accumulated_value = 1050;
+        let accumulated_weight = 50;
+        let estimated_fee = 20;
+
+        let waste = calculate_waste(
+            &inputs,
+            &selection_output.selected_inputs,
+            &options,
+            accumulated_value,
+            accumulated_weight,
+            estimated_fee,
+        );
+
+        assert_eq!(waste, accumulated_value - options.target_value - estimated_fee)
+     }
 }
