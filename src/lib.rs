@@ -11,7 +11,7 @@ use std::hash::{Hash, Hasher};
 /// single UTXO, or a group of UTXOs that should be spent together.
 /// The library user is responsible for crafting this structure correctly. Incorrect representation of this
 /// structure will cause incorrect selection result.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy)]
 pub struct OutputGroup {
     /// Total value of the UTXO(s) that this [`WeightedValue`] represents.
     pub value: u64,
@@ -143,10 +143,10 @@ fn knap_sack(
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     let mut target_reached = false;
-    let mut selected_inputs: HashSet<(usize, OutputGroup)> = HashSet::new();
+    let mut selected_inputs: HashSet<(usize)> = HashSet::new();
     let mut accumulated_value: u64 = 0;
     let mut accumulated_weight: u32 = 0;
-    let mut best_set: HashSet<(usize, OutputGroup)> = HashSet::new();
+    let mut best_set: HashSet<(usize)> = HashSet::new();
     // Assigning infinity to beginwith
     let mut best_set_value: u64 = u64::MAX;
 
@@ -159,19 +159,18 @@ fn knap_sack(
                     let prob = 0.5;
                     let toss_result: bool = rng.gen_bool(prob);
                     let selected_element = (index, u);
-                    if (j == 2 && !selected_inputs.contains(&selected_element))
+                    if (j == 2 && !selected_inputs.contains(&selected_element.0))
                         || (j == 1 && toss_result)
                     {
                         // Including the UTXO in the selected inputs
-                        selected_inputs.insert(selected_element);
+                        selected_inputs.insert(selected_element.0);
                         accumulated_value += u.value;
                         accumulated_weight += u.weight;
                         if accumulated_value == adjusted_target {
                             // Perfect Match, Return the vector selected_inputs
                             let estimated_fees =
                                 calculate_fee(accumulated_weight, options.target_feerate);
-                            let index_vector: Vec<usize> =
-                                selected_inputs.iter().map(|&(index, _)| index).collect();
+                            let index_vector: Vec<usize> = selected_inputs.into_iter().collect();
                             let waste: u64 = calculate_waste(
                                 inputs,
                                 &index_vector,
@@ -189,9 +188,9 @@ fn knap_sack(
                             if accumulated_value < best_set_value {
                                 // New best_set found
                                 best_set_value = accumulated_value;
-                                best_set = selected_inputs.clone();
+                                best_set.clone_from(&selected_inputs);
                                 // Removing the last UTXO that raised selection_sum above adjusted_target to try to find a smaller set
-                                selected_inputs.remove(&selected_element);
+                                selected_inputs.remove(&selected_element.0);
                                 accumulated_value -= u.value;
                             }
                         }
@@ -202,7 +201,7 @@ fn knap_sack(
     }
     // Best set of UTXOs after 1000 trials
     let estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
-    let index_vector: Vec<usize> = selected_inputs.iter().map(|&(index, _)| index).collect();
+    let index_vector: Vec<usize> = selected_inputs.into_iter().collect();
     let waste: u64 = calculate_waste(
         inputs,
         &index_vector,
