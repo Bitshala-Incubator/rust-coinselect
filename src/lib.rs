@@ -3,6 +3,7 @@
 //! A blockchain-agnostic Rust Coinselection library
 
 use rand::{seq::SliceRandom, thread_rng};
+use std::matches;
 
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
@@ -77,6 +78,12 @@ pub enum SelectionError {
     NoSolutionFound,
 }
 
+#[derive(Debug)]
+pub enum FeeError {
+    NegativeFeeRate,
+    AbnormallyHighFee,
+}
+
 /// Calculated waste for a specific selection.
 /// This is used to compare various selection algorithm and find the most
 /// optimizewd solution, represented by least [WasteMetric] value.
@@ -143,16 +150,16 @@ pub fn select_coin_lowestlarger(
     let target = options.target_value + options.min_drain_value;
 
     let mut sorted_inputs: Vec<_> = inputs.iter().enumerate().collect();
-    sorted_inputs.sort_by_key(|(_, input)| effective_value(input, options.target_feerate));
+    sorted_inputs.sort_by_key(|(_, input)| effective_value(input, options.target_feerate).unwrap());
 
     let mut index = sorted_inputs.partition_point(|(_, input)| {
-        input.value <= (target + calculate_fee(input.weight, options.target_feerate))
+        input.value <= (target + calculate_fee(input.weight, options.target_feerate).unwrap())
     });
 
     for (idx, input) in sorted_inputs.iter().take(index).rev() {
         accumulated_value += input.value;
         accumulated_weight += input.weight;
-        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
+        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate).unwrap();
         selected_inputs.push(*idx);
 
         if accumulated_value >= (target + estimated_fees.max(options.min_absolute_fee)) {
@@ -164,7 +171,7 @@ pub fn select_coin_lowestlarger(
         for (idx, input) in sorted_inputs.iter().skip(index) {
             accumulated_value += input.value;
             accumulated_weight += input.weight;
-            estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
+            estimated_fees = calculate_fee(accumulated_weight, options.target_feerate).unwrap();
             selected_inputs.push(*idx);
 
             if accumulated_value >= (target + estimated_fees.max(options.min_absolute_fee)) {
@@ -209,7 +216,7 @@ pub fn select_coin_fifo(
     sorted_inputs.sort_by_key(|(_, a)| a.creation_sequence);
 
     for (index, inputs) in sorted_inputs {
-        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
+        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate).unwrap();
         if accumulated_value
             >= (options.target_value
                 + estimated_fees.max(options.min_absolute_fee)
@@ -268,7 +275,7 @@ pub fn select_coin_srd(
 
     let necessary_target = options.target_value
         + options.min_drain_value
-        + calculate_fee(options.base_weight, options.target_feerate);
+        + calculate_fee(options.base_weight, options.target_feerate).unwrap();
 
     for (index, input) in randomized_inputs {
         selected_inputs.push(index);
@@ -276,7 +283,7 @@ pub fn select_coin_srd(
         accumulated_weight += input.weight;
         input_counts += input.input_count;
 
-        estimated_fee = calculate_fee(accumulated_weight, options.target_feerate);
+        estimated_fee = calculate_fee(accumulated_weight, options.target_feerate).unwrap();
 
         if accumulated_value
             >= options.target_value
@@ -346,22 +353,35 @@ fn calculate_waste(
 }
 
 #[inline]
-fn calculate_fee(weight: u32, rate: f32) -> u64 {
-    (weight as f32 * rate).ceil() as u64
+fn calculate_fee(weight: u32, rate: f32) -> Result<u64, FeeError> {
+    if rate < 0.0 {
+        Err(FeeError::NegativeFeeRate)
+
+    } else if rate > 1000.0 {
+        Err(FeeError::AbnormallyHighFee)
+
+    } else {
+        Ok((weight as f32 * rate).ceil() as u64)
+
+    }
 }
 
 /// Returns the effective value which is the actual value minus the estimated fee of the OutputGroup
 #[inline]
-fn effective_value(output: &OutputGroup, feerate: f32) -> u64 {
-    output
+fn effective_value(output: &OutputGroup, feerate: f32) -> Result<u64, FeeError> {
+    Ok(output
         .value
-        .saturating_sub(calculate_fee(output.weight, feerate))
+        .saturating_sub(calculate_fee(output.weight, feerate)?))
 }
 
 #[cfg(test)]
 mod test {
 
+    use std::fmt::Error;
+
     use super::*;
+
+
 
     fn setup_basic_output_groups() -> Vec<OutputGroup> {
         vec![
@@ -581,94 +601,156 @@ mod test {
 
     #[test]
     fn test_calculate_fee(){
-        let fee = calculate_fee(60, 5.0);
-        assert_eq!(fee, 300)
+        struct TestVector {
+            weight: u32,
+            fee: f32,
+            output: Result<u64, FeeError>
+        }
+
+        let test_vectors= [TestVector{weight: 60, fee: 5.0, output: Ok(300)}, 
+                                            TestVector{weight: 60, fee: -5.0, output: Err(FeeError::NegativeFeeRate)}, 
+                                            TestVector{weight: 60, fee: 1001.0, output: Err(FeeError::AbnormallyHighFee)}];
+
+        for vector in test_vectors {
+            let result = calculate_fee(vector.weight, vector.fee);
+            match result {
+                Ok(val) =>{ 
+                    assert_eq!(val, vector.output.unwrap()) 
+                }
+                Err(err) => {
+                    let output = vector.output.err();
+                    assert!(matches!(err, output));
+                }
+
+            }
+        }
     }
 
+
+
     #[test]
-    fn test_effective_value_when_less_than_zero(){
-       let output = OutputGroup {
-        value: 100,
-        weight: 101,
-        input_count: 1,
-        is_segwit: false,
-        creation_sequence: None,
-    };
-       let feerate = 1.0;
-       let effective_value = effective_value(&output, feerate);
-       // 100 -101 will equal zero because effective_value uses u64.saturating_sub()
-       assert_eq!(effective_value, 0)
+    fn test_effective_value(){
+        struct TestVector{
+            output: OutputGroup,
+            feerate: f32,
+            result: Result<u64, FeeError>
+        }
+
+        let test_vectors =  [
+        // Value minus weight would be less Than Zero but will return zero because of saturating_subtraction for u64
+        TestVector{ 
+            output:OutputGroup {
+                value: 100,
+                weight: 101,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            }, 
+            feerate: 1.0,
+            result: Ok(0)},
+        // Value greater than zero
+        TestVector{
+            output: OutputGroup {
+                value: 100,
+                weight: 99, 
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            feerate: 1.0,
+            result: Ok(1)},
+        // Test negative fee rate return appropriate error
+        TestVector{
+            output: OutputGroup {
+                value: 100,
+                weight: 99, 
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            feerate: -1.0,
+            result: Err(FeeError::NegativeFeeRate)},
+        // Test very high fee rate    
+        TestVector{
+            output: OutputGroup {
+                value: 100,
+                weight: 99, 
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            feerate: 2000.0,
+            result: Err(FeeError::AbnormallyHighFee)}
+        ];
+
+        for vector in test_vectors {
+            let effective_value = effective_value(&vector.output, vector.feerate);
+
+            match effective_value {
+                Ok(val) =>{ 
+                    assert_eq!(val, vector.result.unwrap()) 
+                }
+                Err(err) => {
+                    let output = vector.result.err();
+                    assert!(matches!(err, output));
+                }
+            }
+        }
+    
 
     }
 
-    #[test]
-    fn test_effective_value_when_greater_than_zero(){
-        let output = OutputGroup {
-         value: 100,
-         weight: 99,
-         input_count: 1,
-         is_segwit: false,
-         creation_sequence: None,
-     };
-        let feerate = 1.0;
-        let effective_value = effective_value(&output, feerate);
-        assert_eq!(effective_value, 1)
- 
-     }
+
 
      #[test]
-     fn test_calculate_waste_to_drain(){
+     fn test_calculate_waste(){
+        struct TestVector {
+            options: CoinSelectionOpt,
+            accumulated_value: u64,
+            accumulated_weight: u32,
+            estimated_fee: u64,
+            result: u64
+        }
+
         let inputs = setup_basic_output_groups();
         let options = setup_options(100);
         let selection_output = select_coin_lowestlarger(&inputs, options).unwrap();
-        let accumulated_value = 1000;
-        let accumulated_weight = 50;
-        let estimated_fee = 20;
+        
 
-        let waste = calculate_waste(
-            &inputs,
-            &selection_output.selected_inputs,
-            &options,
-            accumulated_value,
-            accumulated_weight,
-            estimated_fee,
-        );
+        let test_vectors = [
+        // Test for excess srategy to drain(change output)
+        TestVector{
+            options,
+            accumulated_value: 1000,
+            accumulated_weight: 50,
+            estimated_fee: 20,
+            result: options.drain_cost,
+        },
 
-        assert_eq!(waste, options.drain_cost)
-     }
+        // Test for excess srategy to miners
+        TestVector{
+            options: CoinSelectionOpt{
+                excess_strategy: ExcessStrategy::ToFee,
+                ..options
+            },
+            accumulated_value: 1000,
+            accumulated_weight: 50,
+            estimated_fee: 20,
+            result:  880,
+        }
+        ];
 
-     #[test]   
-     fn test_calculate_waste_to_miner(){
-        let inputs = setup_basic_output_groups();
-        let options = CoinSelectionOpt{
-            target_value: 1000,
-            target_feerate: 0.5, // Simplified feerate
-            long_term_feerate: None,
-            min_absolute_fee: 0,
-            base_weight: 10,
-            drain_weight: 50,
-            drain_cost: 10,
-            cost_per_input: 20,
-            cost_per_output: 10,
-            min_drain_value: 500,
-            excess_strategy: ExcessStrategy::ToFee,
+        for vector in test_vectors {
+            let waste = calculate_waste(
+                &inputs,
+                &selection_output.selected_inputs,
+                &vector.options,
+                vector.accumulated_value,
+                vector.accumulated_weight,
+                vector.estimated_fee,
+            );
 
-        };
-
-        let selection_output = select_coin_lowestlarger(&inputs, options).unwrap();
-        let accumulated_value = 1050;
-        let accumulated_weight = 50;
-        let estimated_fee = 20;
-
-        let waste = calculate_waste(
-            &inputs,
-            &selection_output.selected_inputs,
-            &options,
-            accumulated_value,
-            accumulated_weight,
-            estimated_fee,
-        );
-
-        assert_eq!(waste, accumulated_value - options.target_value - estimated_fee)
-     }
+            assert_eq!(waste, vector.result)
+        }
+    }
 }
