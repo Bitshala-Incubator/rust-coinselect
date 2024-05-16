@@ -120,8 +120,13 @@ pub fn select_coin_bnb(
 
 /// Return empty vec if no solutions are found
 // changing the selected_inputs : &[usize] -> &mut Vec<usize> 
-fn bnb(inputs_in_desc_value: &[(usize, OutputGroup)] , selected_inputs: &mut Vec<usize>, effective_values : u64 , depth: usize  , bnp_tries: u32,
-options: &CoinSelectionOpt
+fn bnb(
+    inputs_in_desc_value: &[(usize, OutputGroup)],
+    selected_inputs: &mut Vec<usize>,
+    effective_values : u64,
+    depth: usize,
+    bnp_tries: u32,
+    options: &CoinSelectionOpt
 ) -> option::Option<Vec<usize>> {
     let target_for_match = options.target_value + (((options.base_weight as f32) * options.target_feerate).ceil() as u64) + options.cost_per_output ; // here we include the CostPerOutput  
     let match_range = options.cost_per_input + options.cost_per_output; 
@@ -643,19 +648,7 @@ mod test {
             creation_sequence: Some(1000),
         }
     ];
-    let opt = CoinSelectionOpt {
-        target_value: 14000000 ,
-        target_feerate: 0.5, // Simplified feerate
-        long_term_feerate: None,
-        min_absolute_fee: 0,
-        base_weight: 10,
-        drain_weight: 50,
-        drain_cost: 10,
-        cost_per_input: 20,
-        cost_per_output: 10,
-        min_drain_value: 500,
-        excess_strategy: ExcessStrategy::ToDrain,
-    } ; 
+    let opt = setup_options(14000000); 
     let ans = select_coin_bnb(&values, opt);
     assert!(ans.is_ok());
     assert!(!ans.unwrap().selected_inputs.contains(&0));  
