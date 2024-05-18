@@ -344,7 +344,9 @@ fn calculate_waste(
     }
 
     if options.excess_strategy != ExcessStrategy::ToDrain {
-        waste += accumulated_value - options.target_value - estimated_fee;
+        waste += accumulated_value
+            .saturating_sub(options.target_value)
+            .saturating_sub(estimated_fee);
     } else {
         waste += options.drain_cost;
     }
@@ -354,15 +356,12 @@ fn calculate_waste(
 
 #[inline]
 fn calculate_fee(weight: u32, rate: f32) -> Result<u64, FeeError> {
-    if rate < 0.0 {
+    if rate <= 0.0 {
         Err(FeeError::NegativeFeeRate)
-
     } else if rate > 1000.0 {
         Err(FeeError::AbnormallyHighFee)
-
     } else {
         Ok((weight as f32 * rate).ceil() as u64)
-
     }
 }
 
@@ -380,8 +379,6 @@ mod test {
     use std::fmt::Error;
 
     use super::*;
-
-
 
     fn setup_basic_output_groups() -> Vec<OutputGroup> {
         vec![
@@ -600,95 +597,127 @@ mod test {
     }
 
     #[test]
-    fn test_calculate_fee(){
+    fn test_calculate_fee() {
         struct TestVector {
             weight: u32,
             fee: f32,
-            output: Result<u64, FeeError>
+            output: Result<u64, FeeError>,
         }
 
-        let test_vectors= [TestVector{weight: 60, fee: 5.0, output: Ok(300)}, 
-                                            TestVector{weight: 60, fee: -5.0, output: Err(FeeError::NegativeFeeRate)}, 
-                                            TestVector{weight: 60, fee: 1001.0, output: Err(FeeError::AbnormallyHighFee)}];
+        let test_vectors = [
+            TestVector {
+                weight: 60,
+                fee: 5.0,
+                output: Ok(300),
+            },
+            TestVector {
+                weight: 60,
+                fee: -5.0,
+                output: Err(FeeError::NegativeFeeRate),
+            },
+            TestVector {
+                weight: 60,
+                fee: 1001.0,
+                output: Err(FeeError::AbnormallyHighFee),
+            },
+            TestVector {
+                weight: 60,
+                fee: 0.0,
+                output: Err(FeeError::NegativeFeeRate),
+            },
+        ];
 
         for vector in test_vectors {
             let result = calculate_fee(vector.weight, vector.fee);
             match result {
-                Ok(val) =>{ 
-                    assert_eq!(val, vector.output.unwrap()) 
+                Ok(val) => {
+                    assert_eq!(val, vector.output.unwrap())
                 }
                 Err(err) => {
                     let output = vector.output.err();
                     assert!(matches!(err, output));
                 }
-
             }
         }
     }
 
-
-
     #[test]
-    fn test_effective_value(){
-        struct TestVector{
+    fn test_effective_value() {
+        struct TestVector {
             output: OutputGroup,
             feerate: f32,
-            result: Result<u64, FeeError>
+            result: Result<u64, FeeError>,
         }
 
-        let test_vectors =  [
-        // Value minus weight would be less Than Zero but will return zero because of saturating_subtraction for u64
-        TestVector{ 
-            output:OutputGroup {
-                value: 100,
-                weight: 101,
-                input_count: 1,
-                is_segwit: false,
-                creation_sequence: None,
-            }, 
-            feerate: 1.0,
-            result: Ok(0)},
-        // Value greater than zero
-        TestVector{
-            output: OutputGroup {
-                value: 100,
-                weight: 99, 
-                input_count: 1,
-                is_segwit: false,
-                creation_sequence: None,
+        let test_vectors = [
+            // Value minus weight would be less Than Zero but will return zero because of saturating_subtraction for u64
+            TestVector {
+                output: OutputGroup {
+                    value: 100,
+                    weight: 101,
+                    input_count: 1,
+                    is_segwit: false,
+                    creation_sequence: None,
+                },
+                feerate: 1.0,
+                result: Ok(0),
             },
-            feerate: 1.0,
-            result: Ok(1)},
-        // Test negative fee rate return appropriate error
-        TestVector{
-            output: OutputGroup {
-                value: 100,
-                weight: 99, 
-                input_count: 1,
-                is_segwit: false,
-                creation_sequence: None,
+            // Value greater than zero
+            TestVector {
+                output: OutputGroup {
+                    value: 100,
+                    weight: 99,
+                    input_count: 1,
+                    is_segwit: false,
+                    creation_sequence: None,
+                },
+                feerate: 1.0,
+                result: Ok(1),
             },
-            feerate: -1.0,
-            result: Err(FeeError::NegativeFeeRate)},
-        // Test very high fee rate    
-        TestVector{
-            output: OutputGroup {
-                value: 100,
-                weight: 99, 
-                input_count: 1,
-                is_segwit: false,
-                creation_sequence: None,
+            // Test negative fee rate return appropriate error
+            TestVector {
+                output: OutputGroup {
+                    value: 100,
+                    weight: 99,
+                    input_count: 1,
+                    is_segwit: false,
+                    creation_sequence: None,
+                },
+                feerate: -1.0,
+                result: Err(FeeError::NegativeFeeRate),
             },
-            feerate: 2000.0,
-            result: Err(FeeError::AbnormallyHighFee)}
+            // Test very high fee rate
+            TestVector {
+                output: OutputGroup {
+                    value: 100,
+                    weight: 99,
+                    input_count: 1,
+                    is_segwit: false,
+                    creation_sequence: None,
+                },
+                feerate: 2000.0,
+                result: Err(FeeError::AbnormallyHighFee),
+            },
+            // Test high value
+            TestVector {
+                output: OutputGroup {
+                    value: 100_000_000_000,
+                    weight: 10,
+                    input_count: 1,
+                    is_segwit: false,
+                    creation_sequence: None,
+                },
+                feerate: 1.0,
+                result: Ok(999_99_999_990),
+            },
         ];
 
         for vector in test_vectors {
             let effective_value = effective_value(&vector.output, vector.feerate);
 
             match effective_value {
-                Ok(val) =>{ 
-                    assert_eq!(val, vector.result.unwrap()) 
+                Ok(val) => {
+                    assert_eq!(val, vector.result.unwrap())
                 }
                 Err(err) => {
                     let output = vector.result.err();
@@ -696,48 +725,54 @@ mod test {
                 }
             }
         }
-    
-
     }
 
-
-
-     #[test]
-     fn test_calculate_waste(){
+    #[test]
+    fn test_calculate_waste() {
         struct TestVector {
             options: CoinSelectionOpt,
             accumulated_value: u64,
             accumulated_weight: u32,
             estimated_fee: u64,
-            result: u64
+            result: u64,
         }
 
         let inputs = setup_basic_output_groups();
         let options = setup_options(100);
         let selection_output = select_coin_lowestlarger(&inputs, options).unwrap();
-        
 
         let test_vectors = [
-        // Test for excess srategy to drain(change output)
-        TestVector{
-            options,
-            accumulated_value: 1000,
-            accumulated_weight: 50,
-            estimated_fee: 20,
-            result: options.drain_cost,
-        },
-
-        // Test for excess srategy to miners
-        TestVector{
-            options: CoinSelectionOpt{
-                excess_strategy: ExcessStrategy::ToFee,
-                ..options
+            // Test for excess srategy to drain(change output)
+            TestVector {
+                options,
+                accumulated_value: 1000,
+                accumulated_weight: 50,
+                estimated_fee: 20,
+                result: options.drain_cost,
             },
-            accumulated_value: 1000,
-            accumulated_weight: 50,
-            estimated_fee: 20,
-            result:  880,
-        }
+            // Test for excess srategy to miners
+            TestVector {
+                options: CoinSelectionOpt {
+                    excess_strategy: ExcessStrategy::ToFee,
+                    ..options
+                },
+                accumulated_value: 1000,
+                accumulated_weight: 50,
+                estimated_fee: 20,
+                result: 880,
+            },
+            // Test accumulated_value minus target_value < 0
+            TestVector {
+                options: CoinSelectionOpt {
+                    target_value: 1000,
+                    excess_strategy: ExcessStrategy::ToFee,
+                    ..options
+                },
+                accumulated_value: 200,
+                accumulated_weight: 50,
+                estimated_fee: 20,
+                result: 0,
+            },
         ];
 
         for vector in test_vectors {
