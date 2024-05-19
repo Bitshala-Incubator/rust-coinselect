@@ -3,6 +3,8 @@
 //! A blockchain-agnostic Rust Coinselection library
 
 use rand::{seq::SliceRandom, thread_rng};
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
@@ -80,11 +82,11 @@ pub enum SelectionError {
 /// Calculated waste for a specific selection.
 /// This is used to compare various selection algorithm and find the most
 /// optimizewd solution, represented by least [WasteMetric] value.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WasteMetric(u64);
 
 /// The result of selection algorithm
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SelectionOutput {
     /// The selected input indices, refers to the indices of the inputs Slice Reference
     pub selected_inputs: Vec<usize>,
@@ -316,7 +318,53 @@ pub fn select_coin(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    let inputs_srd = inputs.to_vec();
+    let inputs_fifo = inputs.to_vec();
+    let inputs_ll = inputs.to_vec();
+
+    let best_result = Arc::new(Mutex::new(None::<SelectionOutput>));
+
+    let best_result_srd = Arc::clone(&best_result);
+    let best_result_fifo = Arc::clone(&best_result);
+    let best_result_ll = Arc::clone(&best_result);
+
+    let options_srd = options.clone();
+    let options_fifo = options.clone();
+    let options_ll = options.clone();
+
+    let srd_handle = thread::spawn(move || {
+        if let Ok(result) = select_coin_srd(&inputs_srd, options_srd) {
+            let mut best_result = best_result_srd.lock().unwrap();
+            if best_result.is_none() || result.waste.0 < best_result.as_ref().unwrap().waste.0 {
+                *best_result = Some(result);
+            }
+        }
+    });
+
+    let fifo_handle = thread::spawn(move || {
+        if let Ok(result) = select_coin_fifo(&inputs_fifo, options_fifo) {
+            let mut best_result = best_result_fifo.lock().unwrap();
+            if best_result.is_none() || result.waste.0 < best_result.as_ref().unwrap().waste.0 {
+                *best_result = Some(result);
+            }
+        }
+    });
+
+    let ll_handle = thread::spawn(move || {
+        if let Ok(result) = select_coin_lowestlarger(&inputs_ll, options_ll) {
+            let mut best_result = best_result_ll.lock().unwrap();
+            if best_result.is_none() || result.waste.0 < best_result.as_ref().unwrap().waste.0 {
+                *best_result = Some(result);
+            }
+        }
+    });
+
+    srd_handle.join().unwrap();
+    fifo_handle.join().unwrap();
+    ll_handle.join().unwrap();
+
+    let best_result = best_result.lock().unwrap().clone();
+    best_result.ok_or(SelectionError::NoSolutionFound)
 }
 
 #[inline]
