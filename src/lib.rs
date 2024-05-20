@@ -93,6 +93,11 @@ pub struct SelectionOutput {
     /// The waste amount, for the above inputs
     pub waste: WasteMetric,
 }
+type SelectionFn = Box<
+    dyn FnOnce(&Vec<OutputGroup>, CoinSelectionOpt, Arc<Mutex<Option<SelectionOutput>>>)
+        + Send
+        + Sync,
+>;
 
 /// Perform Coinselection via Branch And Bound algorithm.
 pub fn select_coin_bnb(
@@ -318,50 +323,49 @@ pub fn select_coin(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    let inputs_srd = inputs.to_vec();
-    let inputs_fifo = inputs.to_vec();
-    let inputs_ll = inputs.to_vec();
-
+    let inputs_vec = inputs.to_vec();
     let best_result = Arc::new(Mutex::new(None::<SelectionOutput>));
 
-    let best_result_srd = Arc::clone(&best_result);
-    let best_result_fifo = Arc::clone(&best_result);
-    let best_result_ll = Arc::clone(&best_result);
-
-    let options_srd = options;
-    let options_fifo = options;
-    let options_ll = options;
-
-    let srd_handle = thread::spawn(move || {
-        if let Ok(result) = select_coin_srd(&inputs_srd, options_srd) {
-            let mut best_result = best_result_srd.lock().unwrap();
-            if best_result.is_none() || result.waste.0 < best_result.as_ref().unwrap().waste.0 {
-                *best_result = Some(result);
+    let functions: Vec<SelectionFn> = vec![
+        Box::new(|inputs, options, best_result| {
+            if let Ok(result) = select_coin_srd(inputs, options) {
+                let mut best_result = best_result.lock().unwrap();
+                if best_result.is_none() || result.waste.0 < best_result.as_ref().unwrap().waste.0 {
+                    *best_result = Some(result);
+                }
             }
-        }
-    });
-
-    let fifo_handle = thread::spawn(move || {
-        if let Ok(result) = select_coin_fifo(&inputs_fifo, options_fifo) {
-            let mut best_result = best_result_fifo.lock().unwrap();
-            if best_result.is_none() || result.waste.0 < best_result.as_ref().unwrap().waste.0 {
-                *best_result = Some(result);
+        }),
+        Box::new(|inputs, options, best_result| {
+            if let Ok(result) = select_coin_fifo(inputs, options) {
+                let mut best_result = best_result.lock().unwrap();
+                if best_result.is_none() || result.waste.0 < best_result.as_ref().unwrap().waste.0 {
+                    *best_result = Some(result);
+                }
             }
-        }
-    });
-
-    let ll_handle = thread::spawn(move || {
-        if let Ok(result) = select_coin_lowestlarger(&inputs_ll, options_ll) {
-            let mut best_result = best_result_ll.lock().unwrap();
-            if best_result.is_none() || result.waste.0 < best_result.as_ref().unwrap().waste.0 {
-                *best_result = Some(result);
+        }),
+        Box::new(|inputs, options, best_result| {
+            if let Ok(result) = select_coin_lowestlarger(inputs, options) {
+                let mut best_result = best_result.lock().unwrap();
+                if best_result.is_none() || result.waste.0 < best_result.as_ref().unwrap().waste.0 {
+                    *best_result = Some(result);
+                }
             }
-        }
-    });
+        }),
+    ];
 
-    srd_handle.join().unwrap();
-    fifo_handle.join().unwrap();
-    ll_handle.join().unwrap();
+    let mut handles = Vec::with_capacity(functions.len());
+    for func in functions {
+        let best_result_clone = Arc::clone(&best_result);
+        let inputs_vec = inputs.to_vec();
+        handles.push(thread::spawn(move || {
+            let func = move |inputs, options, best_result| func(inputs, options, best_result);
+            func(&inputs_vec, options, best_result_clone)
+        }));
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
 
     let best_result = best_result.lock().unwrap().clone();
     best_result.ok_or(SelectionError::NoSolutionFound)
