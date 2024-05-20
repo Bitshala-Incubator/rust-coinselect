@@ -328,9 +328,9 @@ pub fn select_coin(
     let best_result_fifo = Arc::clone(&best_result);
     let best_result_ll = Arc::clone(&best_result);
 
-    let options_srd = options.clone();
-    let options_fifo = options.clone();
-    let options_ll = options.clone();
+    let options_srd = options;
+    let options_fifo = options;
+    let options_ll = options;
 
     let srd_handle = thread::spawn(move || {
         if let Ok(result) = select_coin_srd(&inputs_srd, options_srd) {
