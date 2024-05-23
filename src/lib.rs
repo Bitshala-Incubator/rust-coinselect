@@ -3,6 +3,8 @@
 //! A blockchain-agnostic Rust Coinselection library
 
 use rand::{seq::SliceRandom, thread_rng};
+use std::sync::{Arc, Mutex};
+use crossbeam::scope;
 
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
@@ -316,7 +318,69 @@ pub fn select_coin(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    let best_result = Arc::new(Mutex::new(None::<SelectionOutput>));
+
+    scope(|s| {
+        let best_result_clone = Arc::clone(&best_result);
+        s.spawn(move |_| {
+            let result = select_coin_fifo(inputs, options);
+            if let Ok(output) = result {
+                let mut best_result = best_result_clone.lock().unwrap();
+                match &*best_result {
+                    Some(best_output) => {
+                        if output.waste.0 < best_output.waste.0 {
+                            *best_result = Some(output);
+                        }
+                    }
+                    None => {
+                        *best_result = Some(output);
+                    }
+                }
+            }
+        });
+
+        let best_result_clone = Arc::clone(&best_result);
+        s.spawn(move |_| {
+            let result = select_coin_lowestlarger(inputs, options);
+            if let Ok(output) = result {
+                let mut best_result = best_result_clone.lock().unwrap();
+                match &*best_result {
+                    Some(best_output) => {
+                        if output.waste.0 < best_output.waste.0 {
+                            *best_result = Some(output);
+                        }
+                    }
+                    None => {
+                        *best_result = Some(output);
+                    }
+                }
+            }
+        });
+
+        let best_result_clone = Arc::clone(&best_result);
+        s.spawn(move |_| {
+            let result = select_coin_srd(inputs, options);
+            if let Ok(output) = result {
+                let mut best_result = best_result_clone.lock().unwrap();
+                match &*best_result {
+                    Some(best_output) => {
+                        if output.waste.0 < best_output.waste.0 {
+                            *best_result = Some(output);
+                        }
+                    }
+                    None => {
+                        *best_result = Some(output);
+                    }
+                }
+            }
+        });
+    }).unwrap();
+
+    Arc::try_unwrap(best_result)
+        .expect("Failed to unwrap Arc")
+        .into_inner()
+        .expect("Failed to lock Mutex")
+        .ok_or(SelectionError::NoSolutionFound)
 }
 
 #[inline]
@@ -343,7 +407,7 @@ fn calculate_waste(
     }
 
     waste
-}
+ }
 
 #[inline]
 fn calculate_fee(weight: u32, rate: f32) -> u64 {

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8.5"
+crossbeam = "0.8"
 
 
 #Empty default feature set, (helpful to generalise in github actions)
