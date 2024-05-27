@@ -5,6 +5,7 @@
 use rand::{seq::SliceRandom, thread_rng};
 use std::sync::{Arc, Mutex};
 use crossbeam::scope;
+use std::thread;
 
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
@@ -320,67 +321,82 @@ pub fn select_coin(
 ) -> Result<SelectionOutput, SelectionError> {
     let best_result = Arc::new(Mutex::new(None::<SelectionOutput>));
 
-    scope(|s| {
-        let best_result_clone = Arc::clone(&best_result);
-        s.spawn(move |_| {
-            let result = select_coin_fifo(inputs, options);
-            if let Ok(output) = result {
-                let mut best_result = best_result_clone.lock().unwrap();
-                match &*best_result {
-                    Some(best_output) => {
-                        if output.waste.0 < best_output.waste.0 {
+    let handles: Vec<_> = vec![
+        {
+            let best_result_clone = Arc::clone(&best_result);
+            let inputs_clone = inputs.to_vec();
+            let options_clone = options.clone();
+            thread::spawn(move || {
+                let result = select_coin_fifo(&inputs_clone, options_clone);
+                if let Ok(output) = result {
+                    let mut best_result = best_result_clone.lock().unwrap();
+                    match &*best_result {
+                        Some(best_output) => {
+                            if output.waste.0 < best_output.waste.0 {
+                                *best_result = Some(output);
+                            }
+                        }
+                        None => {
                             *best_result = Some(output);
                         }
                     }
-                    None => {
-                        *best_result = Some(output);
+                }
+            })
+        },
+        {
+            let best_result_clone = Arc::clone(&best_result);
+            let inputs_clone = inputs.to_vec();
+            let options_clone = options.clone();
+            thread::spawn(move || {
+                let result = select_coin_lowestlarger(&inputs_clone, options_clone);
+                if let Ok(output) = result {
+                    let mut best_result = best_result_clone.lock().unwrap();
+                    match &*best_result {
+                        Some(best_output) => {
+                            if output.waste.0 < best_output.waste.0 {
+                                *best_result = Some(output);
+                            }
+                        }
+                        None => {
+                            *best_result = Some(output);
+                        }
                     }
                 }
-            }
-        });
+            })
+        },
+        {
+            let best_result_clone = Arc::clone(&best_result);
+            let inputs_clone = inputs.to_vec();
+            let options_clone = options.clone();
+            thread::spawn(move || {
+                let result = select_coin_srd(&inputs_clone, options_clone);
+                if let Ok(output) = result {
+                    let mut best_result = best_result_clone.lock().unwrap();
+                    match &*best_result {
+                        Some(best_output) => {
+                            if output.waste.0 < best_output.waste.0 {
+                                *best_result = Some(output);
+                            }
+                        }
+                        None => {
+                            *best_result = Some(output);
+                        }
+                    }
+                }
+            })
+        },
+    ];
 
-        let best_result_clone = Arc::clone(&best_result);
-        s.spawn(move |_| {
-            let result = select_coin_lowestlarger(inputs, options);
-            if let Ok(output) = result {
-                let mut best_result = best_result_clone.lock().unwrap();
-                match &*best_result {
-                    Some(best_output) => {
-                        if output.waste.0 < best_output.waste.0 {
-                            *best_result = Some(output);
-                        }
-                    }
-                    None => {
-                        *best_result = Some(output);
-                    }
-                }
-            }
-        });
-
-        let best_result_clone = Arc::clone(&best_result);
-        s.spawn(move |_| {
-            let result = select_coin_srd(inputs, options);
-            if let Ok(output) = result {
-                let mut best_result = best_result_clone.lock().unwrap();
-                match &*best_result {
-                    Some(best_output) => {
-                        if output.waste.0 < best_output.waste.0 {
-                            *best_result = Some(output);
-                        }
-                    }
-                    None => {
-                        *best_result = Some(output);
-                    }
-                }
-            }
-        });
-    }).unwrap();
+    for handle in handles {
+        handle.join().unwrap();
+    }
 
     Arc::try_unwrap(best_result)
         .expect("Failed to unwrap Arc")
         .into_inner()
         .expect("Failed to lock Mutex")
         .ok_or(SelectionError::NoSolutionFound)
+   
 }
 
 #[inline]
