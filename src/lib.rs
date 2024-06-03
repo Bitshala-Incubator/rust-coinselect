@@ -151,10 +151,6 @@ fn knap_sack(
     let mut best_set_value: u64 = u64::MAX;
     let mut best_set_weight: u32 = 0;
     let mut rng = thread_rng();
-    let mut prev_element_index: usize = 0;
-    let mut prev_element_value: u64 = 0;
-    let mut prev_element_weight: u32 = 0;
-
     for i in 1..=1000 {
         for pass in 1..=2 {
             if !target_reached {
