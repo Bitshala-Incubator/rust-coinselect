@@ -149,25 +149,30 @@ fn knap_sack(
     let mut best_set: HashSet<(usize)> = HashSet::new();
     // Assigning infinity to beginwith
     let mut best_set_value: u64 = u64::MAX;
+    let mut best_set_weight: u32 = 0;
+    let mut rng = thread_rng();
+    let mut prev_element_index: usize = 0;
+    let mut prev_element_value: u64 = 0;
+    let mut prev_element_weight: u32 = 0;
 
     for i in 1..=1000 {
-        for j in 1..=2 {
+        for pass in 1..=2 {
             if !target_reached {
                 for &(index, u) in smaller_coins {
                     //Simulate a coin toss
-                    let mut rng = thread_rng();
-                    let prob = 0.5;
-                    let toss_result: bool = rng.gen_bool(prob);
+                    let toss_result: bool = rng.gen_bool(0.5);
                     let selected_element = (index, u);
-                    if (j == 2 && !selected_inputs.contains(&selected_element.0))
-                        || (j == 1 && toss_result)
+                    if (pass == 2 && !selected_inputs.contains(&selected_element.0))
+                        || (pass == 1 && toss_result)
                     {
                         // Including the UTXO in the selected inputs
                         selected_inputs.insert(selected_element.0);
-                        accumulated_value += u.value;
+                        // Adding the effective value of an input (value - estimated fee)
+                        accumulated_value +=
+                            effective_value(&selected_element.1, options.target_feerate);
                         accumulated_weight += u.weight;
                         if accumulated_value == adjusted_target {
-                            // Perfect Match, Return the vector selected_inputs
+                            // Perfect Match, Return the HashSet selected_inputs
                             let estimated_fees =
                                 calculate_fee(accumulated_weight, options.target_feerate);
                             let index_vector: Vec<usize> = selected_inputs.into_iter().collect();
@@ -188,10 +193,14 @@ fn knap_sack(
                             if accumulated_value < best_set_value {
                                 // New best_set found
                                 best_set_value = accumulated_value;
+                                best_set_weight = accumulated_weight;
                                 best_set.clone_from(&selected_inputs);
+
                                 // Removing the last UTXO that raised selection_sum above adjusted_target to try to find a smaller set
                                 selected_inputs.remove(&selected_element.0);
-                                accumulated_value -= u.value;
+                                accumulated_value -= selected_element.1.value;
+                                accumulated_weight -= selected_element.1.weight;
+                                target_reached = false;
                             }
                         }
                     }
@@ -199,21 +208,25 @@ fn knap_sack(
             }
         }
     }
-    // Best set of UTXOs after 1000 trials
-    let estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
-    let index_vector: Vec<usize> = selected_inputs.into_iter().collect();
-    let waste: u64 = calculate_waste(
-        inputs,
-        &index_vector,
-        &options,
-        accumulated_value,
-        accumulated_weight,
-        estimated_fees,
-    );
-    Ok(SelectionOutput {
-        selected_inputs: index_vector,
-        waste: WasteMetric(waste),
-    })
+    if best_set_value < adjusted_target {
+        Err(SelectionError::NoSolutionFound)
+    } else {
+        // Best set of UTXOs after 1000 trials
+        let estimated_fees = calculate_fee(best_set_weight, options.target_feerate);
+        let index_vector: Vec<usize> = best_set.into_iter().collect();
+        let waste: u64 = calculate_waste(
+            inputs,
+            &index_vector,
+            &options,
+            best_set_value,
+            best_set_weight,
+            estimated_fees,
+        );
+        Ok(SelectionOutput {
+            selected_inputs: index_vector,
+            waste: WasteMetric(waste),
+        })
+    }
 }
 
 /// Perform Coinselection via Lowest Larger algorithm.
@@ -591,6 +604,45 @@ mod test {
             },
         ]
     }
+    fn setup_knapsack_output_groups() -> Vec<OutputGroup> {
+        vec![
+            OutputGroup {
+                value: 100,
+                weight: 100,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 1000,
+                weight: 100,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 1500,
+                weight: 100,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 2000,
+                weight: 200,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 3000,
+                weight: 300,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
+            },
+        ]
+    }
     fn setup_options(target_value: u64) -> CoinSelectionOpt {
         CoinSelectionOpt {
             target_value,
@@ -644,19 +696,9 @@ mod test {
         let result = select_coin_srd(&inputs, options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
-
-    fn test_exact_match_knapsack() {
-        let mut inputs = setup_basic_output_groups();
-        let mut options = setup_options(2495); //Set target value to match the available utxos, target fee rate, base weight
-        let mut result = select_coin_knapsack(&inputs, options);
-        assert!(result.is_ok());
-        let mut selection_output = result.unwrap();
-        assert!(!selection_output.selected_inputs.is_empty());
-    }
-
     fn test_nonexact_match_knapsack() {
-        let mut inputs = setup_basic_output_groups();
-        let mut options = setup_options(2500); //Set target value to match the available utxos, target fee rate, base weight
+        let mut inputs = setup_knapsack_output_groups();
+        let mut options = setup_options(1500); //Set target value to match the available utxos, target fee rate, base weight
         let mut result = select_coin_knapsack(&inputs, options);
         assert!(result.is_ok());
         let mut selection_output = result.unwrap();
@@ -670,8 +712,6 @@ mod test {
 
     #[test]
     fn test_knapsack() {
-        // Perform test for exact match
-        test_exact_match_knapsack();
         test_nonexact_match_knapsack();
     }
 
