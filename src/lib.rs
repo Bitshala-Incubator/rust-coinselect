@@ -76,10 +76,6 @@ pub enum ExcessStrategy {
 pub enum SelectionError {
     InsufficientFunds,
     NoSolutionFound,
-}
-
-#[derive(Debug)]
-pub enum FeeError {
     NegativeFeeRate,
     AbnormallyHighFee,
 }
@@ -159,7 +155,7 @@ pub fn select_coin_lowestlarger(
     for (idx, input) in sorted_inputs.iter().take(index).rev() {
         accumulated_value += input.value;
         accumulated_weight += input.weight;
-        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate).unwrap();
+        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate)?;
         selected_inputs.push(*idx);
 
         if accumulated_value >= (target + estimated_fees.max(options.min_absolute_fee)) {
@@ -171,7 +167,7 @@ pub fn select_coin_lowestlarger(
         for (idx, input) in sorted_inputs.iter().skip(index) {
             accumulated_value += input.value;
             accumulated_weight += input.weight;
-            estimated_fees = calculate_fee(accumulated_weight, options.target_feerate).unwrap();
+            estimated_fees = calculate_fee(accumulated_weight, options.target_feerate)?;
             selected_inputs.push(*idx);
 
             if accumulated_value >= (target + estimated_fees.max(options.min_absolute_fee)) {
@@ -216,7 +212,7 @@ pub fn select_coin_fifo(
     sorted_inputs.sort_by_key(|(_, a)| a.creation_sequence);
 
     for (index, inputs) in sorted_inputs {
-        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate).unwrap();
+        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate)?;
         if accumulated_value
             >= (options.target_value
                 + estimated_fees.max(options.min_absolute_fee)
@@ -275,7 +271,7 @@ pub fn select_coin_srd(
 
     let necessary_target = options.target_value
         + options.min_drain_value
-        + calculate_fee(options.base_weight, options.target_feerate).unwrap();
+        + calculate_fee(options.base_weight, options.target_feerate)?;
 
     for (index, input) in randomized_inputs {
         selected_inputs.push(index);
@@ -283,7 +279,7 @@ pub fn select_coin_srd(
         accumulated_weight += input.weight;
         input_counts += input.input_count;
 
-        estimated_fee = calculate_fee(accumulated_weight, options.target_feerate).unwrap();
+        estimated_fee = calculate_fee(accumulated_weight, options.target_feerate)?;
 
         if accumulated_value
             >= options.target_value
@@ -355,11 +351,11 @@ fn calculate_waste(
 }
 
 #[inline]
-fn calculate_fee(weight: u32, rate: f32) -> Result<u64, FeeError> {
+fn calculate_fee(weight: u32, rate: f32) -> Result<u64, SelectionError> {
     if rate <= 0.0 {
-        Err(FeeError::NegativeFeeRate)
+        Err(SelectionError::NegativeFeeRate)
     } else if rate > 1000.0 {
-        Err(FeeError::AbnormallyHighFee)
+        Err(SelectionError::AbnormallyHighFee)
     } else {
         Ok((weight as f32 * rate).ceil() as u64)
     }
@@ -367,7 +363,7 @@ fn calculate_fee(weight: u32, rate: f32) -> Result<u64, FeeError> {
 
 /// Returns the effective value which is the actual value minus the estimated fee of the OutputGroup
 #[inline]
-fn effective_value(output: &OutputGroup, feerate: f32) -> Result<u64, FeeError> {
+fn effective_value(output: &OutputGroup, feerate: f32) -> Result<u64, SelectionError> {
     Ok(output
         .value
         .saturating_sub(calculate_fee(output.weight, feerate)?))
@@ -601,7 +597,7 @@ mod test {
         struct TestVector {
             weight: u32,
             fee: f32,
-            output: Result<u64, FeeError>,
+            output: Result<u64, SelectionError>,
         }
 
         let test_vectors = [
@@ -613,17 +609,17 @@ mod test {
             TestVector {
                 weight: 60,
                 fee: -5.0,
-                output: Err(FeeError::NegativeFeeRate),
+                output: Err(SelectionError::NegativeFeeRate),
             },
             TestVector {
                 weight: 60,
                 fee: 1001.0,
-                output: Err(FeeError::AbnormallyHighFee),
+                output: Err(SelectionError::AbnormallyHighFee),
             },
             TestVector {
                 weight: 60,
                 fee: 0.0,
-                output: Err(FeeError::NegativeFeeRate),
+                output: Err(SelectionError::NegativeFeeRate),
             },
         ];
 
@@ -646,7 +642,7 @@ mod test {
         struct TestVector {
             output: OutputGroup,
             feerate: f32,
-            result: Result<u64, FeeError>,
+            result: Result<u64, SelectionError>,
         }
 
         let test_vectors = [
@@ -684,7 +680,7 @@ mod test {
                     creation_sequence: None,
                 },
                 feerate: -1.0,
-                result: Err(FeeError::NegativeFeeRate),
+                result: Err(SelectionError::NegativeFeeRate),
             },
             // Test very high fee rate
             TestVector {
@@ -696,7 +692,7 @@ mod test {
                     creation_sequence: None,
                 },
                 feerate: 2000.0,
-                result: Err(FeeError::AbnormallyHighFee),
+                result: Err(SelectionError::AbnormallyHighFee),
             },
             // Test high value
             TestVector {
