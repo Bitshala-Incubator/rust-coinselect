@@ -136,7 +136,7 @@ pub fn select_coin_knapsack(
 /// adjusted_target should be target value plus estimated fee
 /// smaller_coins is a slice of pair where the usize refers to the index of the OutputGroup in the inputs given
 /// smaller_coins should be sorted in descending order based on the value of the OutputGroup, and every OutputGroup value should be less than adjusted_target
-fn knap_sack_calculate_accumulated_weight(
+fn calculate_accumulated_weight(
     inputs: &[(usize, OutputGroup)],
     selected_inputs: &HashSet<usize>,
 ) -> u32 {
@@ -162,10 +162,10 @@ fn knap_sack(
     let mut rng = thread_rng();
     for i in 1..=1000 {
         for pass in 1..=2 {
-            for &(index, u) in smaller_coins {
+            for &(index, coin) in smaller_coins {
                 //Simulate a coin toss
                 let toss_result: bool = rng.gen_bool(0.5);
-                let selected_element = (index, u);
+                let selected_element = (index, coin);
                 if (pass == 2 && !selected_inputs.contains(&selected_element.0))
                     || (pass == 1 && toss_result)
                 {
@@ -178,7 +178,7 @@ fn knap_sack(
                         // Perfect Match, Return the HashSet selected_inputs
                         // Calculating the weight of elements in the selected_inputs hashset
                         let accumulated_weight =
-                            knap_sack_calculate_accumulated_weight(smaller_coins, &selected_inputs);
+                            calculate_accumulated_weight(smaller_coins, &selected_inputs);
                         let estimated_fees =
                             calculate_fee(accumulated_weight, options.target_feerate);
                         let index_vector: Vec<usize> = selected_inputs.into_iter().collect();
@@ -194,13 +194,12 @@ fn knap_sack(
                             selected_inputs: index_vector,
                             waste: WasteMetric(waste),
                         });
-                    } else if accumulated_value >= adjusted_target
-                        && accumulated_value < best_set_value
-                    {
-                        // New best_set found
-                        best_set_value = accumulated_value;
-                        best_set.clone_from(&selected_inputs);
-
+                    } else if accumulated_value >= adjusted_target {
+                        if (accumulated_value < best_set_value) {
+                            // New best_set found
+                            best_set_value = accumulated_value;
+                            best_set.clone_from(&selected_inputs);
+                        }
                         // Removing the last UTXO that raised selection_sum above adjusted_target to try to find a smaller set
                         selected_inputs.remove(&selected_element.0);
                         accumulated_value -= selected_element.1.value;
@@ -209,12 +208,13 @@ fn knap_sack(
             }
         }
         accumulated_value = 0;
+        selected_inputs.clear();
     }
     if best_set_value == u64::MAX {
         Err(SelectionError::NoSolutionFound)
     } else {
         // Calculating the weight of elements in the selected inputs
-        let best_set_weight = knap_sack_calculate_accumulated_weight(smaller_coins, &best_set);
+        let best_set_weight = calculate_accumulated_weight(smaller_coins, &best_set);
         // Calculating the estimated fees for the selected inputs
         let estimated_fees = calculate_fee(best_set_weight, options.target_feerate);
         let index_vector: Vec<usize> = best_set.into_iter().collect();
@@ -747,11 +747,11 @@ mod test {
                     (10.001 * CENT).round() as u64,
                     (20.001 * CENT).round() as u64,
                 ],
-                vec![30, 100, 100, 50, 40],
+                vec![150, 200, 100, 1, 5],
             );
             options = setup_options((37.0 * CENT).round() as u64);
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                assert_eq!(result.selected_inputs.len(), 5);
+                assert_eq!(result.selected_inputs.len(), 4);
             }
         }
     }
