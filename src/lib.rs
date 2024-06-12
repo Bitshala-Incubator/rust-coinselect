@@ -718,6 +718,7 @@ mod test {
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
     fn test_core_knapsack_vectors() {
+        let mut inputs_verify: Vec<usize> = Vec::new();
         for i in 0..RUN_TESTS {
             // Test if Knapsack retruns an Error
             let mut inputs: Vec<OutputGroup> = Vec::new();
@@ -733,12 +734,17 @@ mod test {
             );
             options = setup_options((3.0 * CENT).round() as u64);
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
+                // Checking if knapsack selectes exactly two inputs
                 assert_eq!(result.selected_inputs.len(), 2);
+                // Checking if the selected inputs are 2 and 1 CENTS
+                inputs_verify=vec![0,1];
+                assert!(inputs_verify.iter().all(|&item| result.selected_inputs.contains(&item)));
             }
             // Clearing the input vector
             inputs.clear();
-            // Adding 2 CENT and 1 CENT to the wallet and testing if knapsack can select the two inputs for a 3 CENT Output
-            // Adding 0.001 CENT to the two inputs to account for fees.
+            inputs_verify.clear();
+            // Adding 20, 10 and 5 CENT to the wallet, totalling 38 CENTS
+            // Adding 0.001 CENT to the two inputs to account for fees
             inputs = setup_output_groups(
                 vec![
                     (2.001 * CENT).round() as u64,
@@ -749,9 +755,94 @@ mod test {
                 ],
                 vec![150, 200, 100, 1, 5],
             );
+            // Testing if knapsack can select 4 inputs (2,5,10,20) CENTS to make 37 CENTS 
             options = setup_options((37.0 * CENT).round() as u64);
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
+                // Checking if knapsack selects exactly 4 inputs
                 assert_eq!(result.selected_inputs.len(), 4);
+                // Checking if the selected inputs are 20, 10, 5, 2 CENTS
+                inputs_verify=vec![4,3,2,0];
+                assert!(inputs_verify.iter().all(|&item| result.selected_inputs.contains(&item)));
+            }
+            // Testing if knapsack can select all the available inputs (2,1,5,10,20) CENTS to make 38 CENTS 
+            inputs_verify.clear();
+            options = setup_options((38.0 * CENT).round() as u64);
+            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+                // Cehcking if knapsack selects exactly 5 inputs
+                assert_eq!(result.selected_inputs.len(), 5);
+                // Cehcking if the selected inputs are 20, 10, 5, 2, 1 CENTS
+                inputs_verify=vec![4,3,2,1,0];
+                assert!(inputs_verify.iter().all(|&item| result.selected_inputs.contains(&item)));
+
+            }
+            // Testing if knapsack can select 3 inputs (5,10,20) CENTS to make 34 CENTS 
+            inputs_verify.clear();
+            options = setup_options((34.0 * CENT).round() as u64);
+            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+                // Checking if knapsack selects exactly 3 inputs
+                assert_eq!(result.selected_inputs.len(), 3);
+                // Cehcking if the selected inputs are 20, 10, 5
+                inputs_verify=vec![4,3,2];
+                assert!(inputs_verify.iter().all(|&item| result.selected_inputs.contains(&item)));
+            }
+            // Testing if knapsack can select 2 inputs (5,2) CENTS to make 7 CENTS 
+            inputs_verify.clear();
+            options = setup_options((7.0 * CENT).round() as u64);
+            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+                // Chekcing if knapsack selects exactly 2 inputs
+                assert_eq!(result.selected_inputs.len(), 2);
+                // Checking if the selected inputs are 5, 2 CENTS
+                inputs_verify = vec![0,2];
+                assert!(inputs_verify.iter().all(|&item| result.selected_inputs.contains(&item)));
+            }
+            // Testing if knapsack can select 3 inputs (5,2,1) CENTS to make 8 CENTS 
+            inputs_verify.clear();
+            options = setup_options((8.0 * CENT).round() as u64);
+            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+                // Chekcing if knapsack selects exactly 3 inputs
+                assert_eq!(result.selected_inputs.len(), 3);
+                // Checking if the selected inputs are 5,2,1 CENTS
+                inputs_verify = vec![0,2,1];
+                assert!(inputs_verify.iter().all(|&item| result.selected_inputs.contains(&item)));
+            }
+            // Testing if knapsack can select 1 input (10) CENTS to make 9 CENTS 
+            inputs_verify.clear();
+            options = setup_options((10.0 * CENT).round() as u64);
+            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+                // Chekcing if knapsack selects exactly 1 inputs
+                assert_eq!(result.selected_inputs.len(), 1);
+                // Checking if the selected inputs are 10 CENTS
+                inputs_verify = vec![10];
+                assert!(inputs_verify.iter().all(|&item| result.selected_inputs.contains(&item)));
+            }
+            // Clearing the input vector
+            inputs.clear();
+            inputs_verify.clear();
+            // Adding 30, 20, 8, 7,6 CENT to the wallet, totalling 71 CENTS
+            // Adding 0.001 CENT to the two inputs to account for fees
+            inputs = setup_output_groups(
+                vec![
+                    (6.001 * CENT).round() as u64,
+                    (7.001 * CENT).round() as u64,
+                    (8.001 * CENT).round() as u64,
+                    (20.001 * CENT).round() as u64,
+                    (30.001 * CENT).round() as u64,
+                ],
+                vec![100, 200, 100, 10, 5],
+            );
+            // Test if Knapsack retruns an Error while trying to select inputs totalling 72 CENTS
+            options = setup_options((72.0 * CENT).round() as u64);
+            result = select_coin_knapsack(&inputs, options);
+            assert!(matches!(result, Err(SelectionError::NoSolutionFound)));
+            // Testing if knapsack can select 1 input (20) CENTS to make 16 CENTS 
+            inputs_verify.clear();
+            options = setup_options((16.0 * CENT).round() as u64);
+            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+                // Chekcing if knapsack selects exactly 1 inputs
+                assert_eq!(result.selected_inputs.len(), 1);
+                // Checking if the selected input is 20 CENTS
+                inputs_verify = vec![3];
+                assert!(inputs_verify.iter().all(|&item| result.selected_inputs.contains(&item)));
             }
         }
     }
