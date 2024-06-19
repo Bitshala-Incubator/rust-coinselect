@@ -78,7 +78,10 @@ pub enum SelectionError {
     NoSolutionFound,
 }
 
-/// Calculated waste for a specific selection.
+/// Wastemetric, of a selection of inputs, is measured in satoshis. It helps evaluate the selection made by different algorithms in the context of the current and long term fee rate.
+/// It is used to strike a balance between wanting to minimize the current transaction's fees versus minimizing the overall fees paid by the wallet during its lifetime.
+/// During high fee rate environment, selecting fewer number of inputs will help minimize the transaction fees.
+/// During low fee rate environment, slecting more number of inputs will help minimize the over all fees paid by the wallet during its lifetime.
 /// This is used to compare various selection algorithm and find the most
 /// optimizewd solution, represented by least [WasteMetric] value.
 #[derive(Debug)]
@@ -612,7 +615,7 @@ mod test {
         CoinSelectionOpt {
             target_value,
             target_feerate: 0.5, // Simplified feerate
-            long_term_feerate: None,
+            long_term_feerate: Some(0.4),
             min_absolute_fee: 0,
             base_weight: 10,
             drain_weight: 50,
@@ -733,8 +736,8 @@ mod test {
                     .iter()
                     .all(|&item| result.selected_inputs.contains(&item)));
             }
-            // Testing if knapsack can select all the available inputs (2,1,5,10,20) CENTS to make 38 CENTS
             inputs_verify.clear();
+            // Testing if knapsack can select all the available inputs (2,1,5,10,20) CENTS to make 38 CENTS
             options = setup_options((38.0 * CENT).round() as u64);
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
                 // Cehcking if knapsack selects exactly 5 inputs
@@ -745,8 +748,8 @@ mod test {
                     .iter()
                     .all(|&item| result.selected_inputs.contains(&item)));
             }
-            // Testing if knapsack can select 3 inputs (5,10,20) CENTS to make 34 CENTS
             inputs_verify.clear();
+            // Testing if knapsack can select 3 inputs (5,10,20) CENTS to make 34 CENTS
             options = setup_options((34.0 * CENT).round() as u64);
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
                 // Checking if knapsack selects exactly 3 inputs
@@ -757,8 +760,8 @@ mod test {
                     .iter()
                     .all(|&item| result.selected_inputs.contains(&item)));
             }
-            // Testing if knapsack can select 2 inputs (5,2) CENTS to make 7 CENTS
             inputs_verify.clear();
+            // Testing if knapsack can select 2 inputs (5,2) CENTS to make 7 CENTS
             options = setup_options((7.0 * CENT).round() as u64);
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
                 // Chekcing if knapsack selects exactly 2 inputs
@@ -769,8 +772,8 @@ mod test {
                     .iter()
                     .all(|&item| result.selected_inputs.contains(&item)));
             }
-            // Testing if knapsack can select 3 inputs (5,2,1) CENTS to make 8 CENTS
             inputs_verify.clear();
+            // Testing if knapsack can select 3 inputs (5,2,1) CENTS to make 8 CENTS
             options = setup_options((8.0 * CENT).round() as u64);
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
                 // Chekcing if knapsack selects exactly 3 inputs
@@ -781,8 +784,8 @@ mod test {
                     .iter()
                     .all(|&item| result.selected_inputs.contains(&item)));
             }
-            // Testing if knapsack can select 1 input (10) CENTS to make 9 CENTS
             inputs_verify.clear();
+            // Testing if knapsack can select 1 input (10) CENTS to make 9 CENTS
             options = setup_options((10.0 * CENT).round() as u64);
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
                 // Chekcing if knapsack selects exactly 1 inputs
@@ -793,9 +796,9 @@ mod test {
                     .iter()
                     .all(|&item| result.selected_inputs.contains(&item)));
             }
+            inputs_verify.clear();
             // Clearing the input vector
             inputs.clear();
-            inputs_verify.clear();
             // Adding 30, 20, 8, 7,6 CENT to the wallet, totalling 71 CENTS
             // Adding 0.001 CENT to the inputs to account for fees
             inputs = setup_output_groups(
@@ -813,7 +816,6 @@ mod test {
             result = select_coin_knapsack(&inputs, options);
             assert!(matches!(result, Err(SelectionError::NoSolutionFound)));
             // Testing if knapsack can select 3 input (6,7,8) CENTS to make 16 CENTS
-            inputs_verify.clear();
             options = setup_options((16.0 * CENT).round() as u64);
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
                 // Chekcing if knapsack selects exactly 3 inputs
@@ -829,7 +831,6 @@ mod test {
             // Adding 0.001 CENT to the input to account for fees
             add_to_output_group(&mut inputs, vec![(5.001 * CENT).round() as u64], vec![10]);
             // Testing if knapsack can select 3 input (5,6,7) CENTS to make 16 CENTS
-            inputs_verify.clear();
             options = setup_options((16.0 * CENT).round() as u64);
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
                 // Chekcing if knapsack selects exactly 3 inputs
