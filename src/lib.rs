@@ -4,7 +4,6 @@
 
 use rand::{seq::SliceRandom, thread_rng};
 use std::sync::{Arc, Mutex};
-use crossbeam::scope;
 use std::thread;
 
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
@@ -313,21 +312,28 @@ pub fn select_coin_srd(
     })
 }
 
-/// The Global Coinselection API that performs all the algorithms and proudeces result with least [WasteMetric].
+/// The Global Coinselection API that performs all the algorithms and produces result with least [WasteMetric].
 /// At least one selection solution should be found.
+type SelectionFn = fn(&[OutputGroup], CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
+
 pub fn select_coin(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     let best_result = Arc::new(Mutex::new(None::<SelectionOutput>));
 
-    let handles: Vec<_> = vec![
-        {
+    // Vector of selection functions
+    let selection_fns: Vec<SelectionFn> =
+        vec![select_coin_fifo, select_coin_lowestlarger, select_coin_srd];
+
+    let handles: Vec<_> = selection_fns
+        .into_iter()
+        .map(|selection_fn| {
             let best_result_clone = Arc::clone(&best_result);
             let inputs_clone = inputs.to_vec();
             let options_clone = options.clone();
             thread::spawn(move || {
-                let result = select_coin_fifo(&inputs_clone, options_clone);
+                let result = selection_fn(&inputs_clone, options_clone);
                 if let Ok(output) = result {
                     let mut best_result = best_result_clone.lock().unwrap();
                     match &*best_result {
@@ -342,50 +348,8 @@ pub fn select_coin(
                     }
                 }
             })
-        },
-        {
-            let best_result_clone = Arc::clone(&best_result);
-            let inputs_clone = inputs.to_vec();
-            let options_clone = options.clone();
-            thread::spawn(move || {
-                let result = select_coin_lowestlarger(&inputs_clone, options_clone);
-                if let Ok(output) = result {
-                    let mut best_result = best_result_clone.lock().unwrap();
-                    match &*best_result {
-                        Some(best_output) => {
-                            if output.waste.0 < best_output.waste.0 {
-                                *best_result = Some(output);
-                            }
-                        }
-                        None => {
-                            *best_result = Some(output);
-                        }
-                    }
-                }
-            })
-        },
-        {
-            let best_result_clone = Arc::clone(&best_result);
-            let inputs_clone = inputs.to_vec();
-            let options_clone = options.clone();
-            thread::spawn(move || {
-                let result = select_coin_srd(&inputs_clone, options_clone);
-                if let Ok(output) = result {
-                    let mut best_result = best_result_clone.lock().unwrap();
-                    match &*best_result {
-                        Some(best_output) => {
-                            if output.waste.0 < best_output.waste.0 {
-                                *best_result = Some(output);
-                            }
-                        }
-                        None => {
-                            *best_result = Some(output);
-                        }
-                    }
-                }
-            })
-        },
-    ];
+        })
+        .collect();
 
     for handle in handles {
         handle.join().unwrap();
@@ -396,7 +360,6 @@ pub fn select_coin(
         .into_inner()
         .expect("Failed to lock Mutex")
         .ok_or(SelectionError::NoSolutionFound)
-   
 }
 
 #[inline]
@@ -423,7 +386,7 @@ fn calculate_waste(
     }
 
     waste
- }
+}
 
 #[inline]
 fn calculate_fee(weight: u32, rate: f32) -> u64 {
@@ -656,6 +619,24 @@ mod test {
         let mut inputs = setup_lowestlarger_output_groups();
         let mut options = setup_options(40000);
         let result = select_coin_lowestlarger(&inputs, options);
+        assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
+    }
+
+    #[test]
+    fn test_select_coin_successful() {
+        let inputs = setup_basic_output_groups();
+        let options = setup_options(1500);
+        let result = select_coin(&inputs, options);
+        assert!(result.is_ok());
+        let selection_output = result.unwrap();
+        assert!(!selection_output.selected_inputs.is_empty());
+    }
+
+    #[test]
+    fn test_select_coin_insufficient_funds() {
+        let inputs = setup_basic_output_groups();
+        let options = setup_options(7000); // Set a target value higher than the sum of all inputs
+        let result = select_coin(&inputs, options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
 }
