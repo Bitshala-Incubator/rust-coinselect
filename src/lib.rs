@@ -330,7 +330,7 @@ pub fn select_coin(
         .map(|selection_fn| {
             let best_result_clone = Arc::clone(&best_result);
             let inputs_clone = inputs.to_vec();
-            let options_clone = options.clone();
+            let options_clone = options;
             thread::spawn(move || {
                 let result = selection_fn(&inputs_clone, options_clone);
                 if let Ok(output) = result {
