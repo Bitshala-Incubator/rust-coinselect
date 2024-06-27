@@ -315,7 +315,6 @@ pub fn select_coin_srd(
 /// The Global Coinselection API that performs all the algorithms and produces result with least [WasteMetric].
 /// At least one selection solution should be found.
 type SelectionFn = fn(&[OutputGroup], CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
-
 pub fn select_coin(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
@@ -359,7 +358,13 @@ pub fn select_coin(
         .expect("Failed to unwrap Arc")
         .into_inner()
         .expect("Failed to lock Mutex")
-        .ok_or(SelectionError::NoSolutionFound)
+        .ok_or_else(|| {
+            if inputs.iter().map(|input| input.value).sum::<u64>() < options.target_value {
+                SelectionError::InsufficientFunds
+            } else {
+                SelectionError::NoSolutionFound
+            }
+        })
 }
 
 #[inline]
