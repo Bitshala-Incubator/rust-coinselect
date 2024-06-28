@@ -1010,7 +1010,7 @@ mod test {
             // performing the assertion operation 10 times
             for j in 0..RUN_TESTS_SLIM {
                 if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                    if let Some(amt_in_inputs) = inputs.get(0) {
+                    if let Some(amt_in_inputs) = inputs.first() {
                         // Checking if the (input's value) - 2000 is less than CENT
                         // If so, more than one input is required to meet the selection target of 2000 sats
                         if amt_in_inputs.value.checked_sub(2000) < Some(CENT as u64) {
