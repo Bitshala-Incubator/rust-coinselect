@@ -319,7 +319,8 @@ pub fn select_coin(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    let best_result = Arc::new(Mutex::new(None::<SelectionOutput>));
+    let best_result: Arc<Mutex<Result<SelectionOutput, SelectionError>>> =
+        Arc::new(Mutex::new(Err(SelectionError::NoSolutionFound)));
 
     // Vector of selection functions
     let selection_fns: Vec<SelectionFn> =
@@ -336,14 +337,15 @@ pub fn select_coin(
                 if let Ok(output) = result {
                     let mut best_result = best_result_clone.lock().unwrap();
                     match &*best_result {
-                        Some(best_output) => {
+                        Ok(best_output) => {
                             if output.waste.0 < best_output.waste.0 {
-                                *best_result = Some(output);
+                                *best_result = Ok(output);
                             }
                         }
-                        None => {
-                            *best_result = Some(output);
+                        Err(SelectionError::InsufficientFunds) => {
+                            *best_result = Err(SelectionError::InsufficientFunds)
                         }
+                        _ => {}
                     }
                 }
             })
@@ -358,13 +360,6 @@ pub fn select_coin(
         .expect("Failed to unwrap Arc")
         .into_inner()
         .expect("Failed to lock Mutex")
-        .ok_or_else(|| {
-            if inputs.iter().map(|input| input.value).sum::<u64>() < options.target_value {
-                SelectionError::InsufficientFunds
-            } else {
-                SelectionError::NoSolutionFound
-            }
-        })
 }
 
 #[inline]
