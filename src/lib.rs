@@ -624,7 +624,7 @@ mod test {
             drain_cost: 10,
             cost_per_input: 20,
             cost_per_output: 10,
-            min_drain_value: 500, //CENT.round() as u64,
+            min_drain_value: 500,
             excess_strategy: ExcessStrategy::ToDrain,
         }
     }
@@ -643,7 +643,7 @@ mod test {
             drain_cost: 10,
             cost_per_input: 20,
             cost_per_output: 10,
-            min_drain_value, //CENT.round() as u64,
+            min_drain_value,
             excess_strategy: ExcessStrategy::ToDrain,
         }
     }
@@ -839,11 +839,11 @@ mod test {
             // Adding 0.001 CENT to the inputs to account for fees
             inputs = knapsack_setup_output_groups(
                 vec![
-                    (6.001 * CENT).round() as u64,
-                    (7.001 * CENT).round() as u64,
-                    (8.001 * CENT).round() as u64,
-                    (20.001 * CENT).round() as u64,
-                    (30.001 * CENT).round() as u64,
+                    (6.0 * CENT).round() as u64,
+                    (7.0 * CENT).round() as u64,
+                    (8.0 * CENT).round() as u64,
+                    (20.0 * CENT).round() as u64,
+                    (30.0 * CENT).round() as u64,
                 ],
                 vec![100, 200, 100, 10, 5],
                 0.77,
@@ -976,6 +976,42 @@ mod test {
             );
             // Testing if knapsack can select 2 input (0.4,0.6) CENTS to make 1 CENTs
             options = knapsack_setup_options((1.0 * CENT).round() as u64, 0.56);
+            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+                // Chekcing if knapsack selects exactly 2 inputs
+                assert_eq!(result.selected_inputs.len(), 2);
+                // Checking if the selected input is 0.4,0.6 CENTS
+                inputs_verify = vec![0, 1];
+                assert!(inputs_verify
+                    .iter()
+                    .all(|&item| result.selected_inputs.contains(&item)));
+            }
+            inputs_verify.clear();
+            // Clearing the input vectors
+            inputs.clear();
+            // Adding 0.05, 1, 100 CENTS to the wallet totalling 101.05 CENTS
+            inputs = knapsack_setup_output_groups(
+                vec![
+                    (100.0 * CENT).round() as u64,
+                    (1.0 * CENT).round() as u64,
+                    (0.05 * CENT).round() as u64,
+                ],
+                vec![14, 45, 6],
+                0.56,
+            );
+            // Testing if knapsack can select 2 input (100,1) CENTS to make 100.01 CENTs, therby avoiding creating small change if 100 & 0.05 is chosen
+            options = CoinSelectionOpt {
+                target_value: (100.01 * CENT).round() as u64,
+                target_feerate: 0.56, // Simplified feerate
+                long_term_feerate: Some(0.4),
+                min_absolute_fee: 0,
+                base_weight: 10,
+                drain_weight: 50,
+                drain_cost: 10,
+                cost_per_input: 20,
+                cost_per_output: 10,
+                min_drain_value: (0.05 * CENT).round() as u64, // Setting minimum drain value = 0.05 CENT. This will make the algorithm to avoid creating small change.
+                excess_strategy: ExcessStrategy::ToDrain,
+            };
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
                 // Chekcing if knapsack selects exactly 2 inputs
                 assert_eq!(result.selected_inputs.len(), 2);
