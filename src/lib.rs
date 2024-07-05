@@ -334,9 +334,8 @@ fn calculate_waste(
     let mut waste: u64 = 0;
 
     if let Some(long_term_feerate) = options.long_term_feerate {
-        waste += (estimated_fee as f32
-            - selected_inputs.len() as f32 * long_term_feerate * accumulated_weight as f32)
-            .ceil() as u64;
+        waste +=
+            ((estimated_fee as f32 - long_term_feerate) * accumulated_weight as f32).ceil() as u64;
     }
 
     if options.excess_strategy != ExcessStrategy::ToDrain {
@@ -704,7 +703,7 @@ mod test {
                     creation_sequence: None,
                 },
                 feerate: 1.0,
-                result: Ok(999_99_999_990),
+                result: Ok(99_999_999_990),
             },
         ];
 
