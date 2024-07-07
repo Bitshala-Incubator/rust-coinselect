@@ -464,8 +464,7 @@ fn effective_value(output: &OutputGroup, feerate: f32) -> u64 {
         .saturating_sub(calculate_fee(output.weight, feerate))
 }
 
-
-#[cfg(test)]    
+#[cfg(test)]
 mod test {
 
     use super::*;
