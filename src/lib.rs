@@ -6,6 +6,8 @@ use rand::{seq::SliceRandom, thread_rng, Rng};
 use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
@@ -413,13 +415,58 @@ pub fn select_coin_srd(
     })
 }
 
+type CoinSelectionFn =
+    fn(&[OutputGroup], CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
+
 /// The Global Coinselection API that performs all the algorithms and proudeces result with least [WasteMetric].
 /// At least one selection solution should be found.
 pub fn select_coin(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    // List of all coin selection algorithms
+    let algorithms: Vec<CoinSelectionFn> = vec![
+        select_coin_fifo,
+        select_coin_lowestlarger,
+        select_coin_srd,
+        // Future algorithms can be added here
+    ];
+
+    let best_result: Arc<Mutex<Result<SelectionOutput, SelectionError>>> = Arc::new(Mutex::new(
+        Err::<SelectionOutput, SelectionError>(SelectionError::NoSolutionFound),
+    ));
+    let mut handles = vec![];
+
+    for algorithm in algorithms {
+        let best_result = Arc::clone(&best_result);
+        let inputs = inputs.to_vec();
+        let options = options.clone();
+
+        let handle = thread::spawn(move || {
+            if let Ok(result) = algorithm(&inputs, options) {
+                let mut best = best_result.lock().unwrap();
+                match &*best {
+                    Ok(current_best) if result.waste.0 < current_best.waste.0 => {
+                        *best = Ok(result);
+                    }
+                    Err(_) => {
+                        *best = Ok(result);
+                    }
+                    _ => {}
+                }
+            }
+        });
+
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().expect("Thread panicked");
+    }
+
+    let best_result = Arc::try_unwrap(best_result).unwrap().into_inner().unwrap();
+
+    best_result
 }
 
 #[inline]
