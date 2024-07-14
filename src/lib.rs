@@ -448,7 +448,7 @@ pub fn select_coin(
     for &algorithm in &algorithms {
         let best_result_clone = Arc::clone(&best_result);
         let inputs_clone = inputs.to_vec();
-        let options_clone = options.clone();
+        let options_clone = options;
 
         let handle = thread::spawn(move || {
             let result = algorithm(&inputs_clone, options_clone);
