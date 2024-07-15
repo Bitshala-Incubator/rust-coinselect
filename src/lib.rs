@@ -455,15 +455,14 @@ pub fn select_coin(
             let mut state = best_result_clone.lock().unwrap();
             match result {
                 Ok(selection_output) => {
-                    let is_better = match &state.result {
+                    if match &state.result {
                         Ok(current_best) => selection_output.waste.0 < current_best.waste.0,
                         Err(_) => true,
-                    };
-                    if is_better {
+                    } {
                         state.result = Ok(selection_output);
                         state.any_success = true;
                     }
-                },
+                }
                 Err(e) => {
                     if e == SelectionError::InsufficientFunds && !state.any_success {
                         // Only set to InsufficientFunds if no algorithm succeeded
