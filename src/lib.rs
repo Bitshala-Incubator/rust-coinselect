@@ -6,6 +6,8 @@ use rand::{seq::SliceRandom, thread_rng, Rng};
 use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
@@ -72,7 +74,7 @@ pub enum ExcessStrategy {
 }
 
 /// Error Describing failure of a selection attempt, on any subset of inputs
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SelectionError {
     InsufficientFunds,
     NoSolutionFound,
@@ -117,6 +119,9 @@ fn bnb(
 }
 
 /// Perform Coinselection via Knapsack solver.
+type EffectiveValue = u64;
+type Weight = u32;
+
 pub fn select_coin_knapsack(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
@@ -128,10 +133,15 @@ pub fn select_coin_knapsack(
         .iter()
         .enumerate()
         .filter(|&(index, output_group)| output_group.value < adjusted_target)
-        .map(|(index, output_group)| (index, *output_group))
+        .map(|(index, output_group)| {
+            (
+                index,
+                effective_value(output_group, options.target_feerate),
+                output_group.weight,
+            )
+        })
         .collect::<Vec<_>>();
-    // Sorting smaller_coins in descending order
-    smaller_coins.sort_by_key(|&(_, output_group)| Reverse(output_group.value));
+    smaller_coins.sort_by_key(|&(_, value, _)| Reverse(value));
 
     knap_sack(adjusted_target, &smaller_coins, inputs, options)
 }
@@ -140,42 +150,37 @@ pub fn select_coin_knapsack(
 /// smaller_coins is a slice of pair where the usize refers to the index of the OutputGroup in the inputs given
 /// smaller_coins should be sorted in descending order based on the value of the OutputGroup, and every OutputGroup value should be less than adjusted_target
 fn calculate_accumulated_weight(
-    inputs: &[(usize, OutputGroup)],
+    smaller_coins: &[(usize, EffectiveValue, Weight)],
     selected_inputs: &HashSet<usize>,
 ) -> u32 {
     let mut accumulated_weight: u32 = 0;
-    for &(index, u) in inputs {
+    for &(index, _value, weight) in smaller_coins {
         if selected_inputs.contains(&index) {
-            accumulated_weight += u.weight;
+            accumulated_weight += weight;
         }
     }
     accumulated_weight
 }
+
 fn knap_sack(
     adjusted_target: u64,
-    smaller_coins: &[(usize, OutputGroup)],
+    smaller_coins: &[(usize, EffectiveValue, Weight)],
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    let mut selected_inputs: HashSet<(usize)> = HashSet::new();
+    let mut selected_inputs: HashSet<usize> = HashSet::new();
     let mut accumulated_value: u64 = 0;
-    let mut best_set: HashSet<(usize)> = HashSet::new();
-    // Assigning infinity to beginwith
+    let mut best_set: HashSet<usize> = HashSet::new();
     let mut best_set_value: u64 = u64::MAX;
     let mut rng = thread_rng();
     for i in 1..=1000 {
         for pass in 1..=2 {
-            for &(index, coin) in smaller_coins {
-                //Simulate a coin toss
+            for &(index, value, weight) in smaller_coins {
                 let toss_result: bool = rng.gen_bool(0.5);
                 if (pass == 2 && !selected_inputs.contains(&index)) || (pass == 1 && toss_result) {
-                    // Including the UTXO in the selected inputs
                     selected_inputs.insert(index);
-                    // Adding the effective value of an input (value - estimated fee)
-                    accumulated_value += effective_value(&coin, options.target_feerate);
+                    accumulated_value += value;
                     if accumulated_value == adjusted_target {
-                        // Perfect Match, Return the HashSet selected_inputs
-                        // Calculating the weight of elements in the selected_inputs hashset
                         let accumulated_weight =
                             calculate_accumulated_weight(smaller_coins, &selected_inputs);
                         let estimated_fees =
@@ -194,14 +199,12 @@ fn knap_sack(
                             waste: WasteMetric(waste),
                         });
                     } else if accumulated_value >= adjusted_target {
-                        if (accumulated_value < best_set_value) {
-                            // New best_set found
+                        if accumulated_value < best_set_value {
                             best_set_value = accumulated_value;
                             best_set.clone_from(&selected_inputs);
                         }
-                        // Removing the last UTXO that raised selection_sum above adjusted_target to try to find a smaller set
                         selected_inputs.remove(&index);
-                        accumulated_value -= effective_value(&coin, options.target_feerate);
+                        accumulated_value -= value;
                     }
                 }
             }
@@ -212,12 +215,9 @@ fn knap_sack(
     if best_set_value == u64::MAX {
         Err(SelectionError::NoSolutionFound)
     } else {
-        // Calculating the weight of elements in the selected inputs
         let best_set_weight = calculate_accumulated_weight(smaller_coins, &best_set);
-        // Calculating the estimated fees for the selected inputs
         let estimated_fees = calculate_fee(best_set_weight, options.target_feerate);
         let index_vector: Vec<usize> = best_set.into_iter().collect();
-        // Calculating waste
         let waste: u64 = calculate_waste(
             inputs,
             &index_vector,
@@ -415,11 +415,68 @@ pub fn select_coin_srd(
 
 /// The Global Coinselection API that performs all the algorithms and proudeces result with least [WasteMetric].
 /// At least one selection solution should be found.
+type CoinSelectionFn =
+    fn(&[OutputGroup], CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
+
+#[derive(Debug)]
+struct SharedState {
+    result: Result<SelectionOutput, SelectionError>,
+    any_success: bool,
+}
+
 pub fn select_coin(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    unimplemented!()
+    let algorithms: Vec<CoinSelectionFn> = vec![
+        select_coin_fifo,
+        select_coin_lowestlarger,
+        select_coin_srd,
+        select_coin_knapsack, // Future algorithms can be added here
+    ];
+    // Shared result for all threads
+    let best_result = Arc::new(Mutex::new(SharedState {
+        result: Err(SelectionError::NoSolutionFound),
+        any_success: false,
+    }));
+    let mut handles = vec![];
+    for &algorithm in &algorithms {
+        let best_result_clone = Arc::clone(&best_result);
+        let inputs_clone = inputs.to_vec();
+        let options_clone = options;
+        let handle = thread::spawn(move || {
+            let result = algorithm(&inputs_clone, options_clone);
+            let mut state = best_result_clone.lock().unwrap();
+            match result {
+                Ok(selection_output) => {
+                    if match &state.result {
+                        Ok(current_best) => selection_output.waste.0 < current_best.waste.0,
+                        Err(_) => true,
+                    } {
+                        state.result = Ok(selection_output);
+                        state.any_success = true;
+                    }
+                }
+                Err(e) => {
+                    if e == SelectionError::InsufficientFunds && !state.any_success {
+                        // Only set to InsufficientFunds if no algorithm succeeded
+                        state.result = Err(SelectionError::InsufficientFunds);
+                    }
+                }
+            }
+        });
+        handles.push(handle);
+    }
+    // Wait for all threads to finish
+    for handle in handles {
+        handle.join().expect("Thread panicked");
+    }
+    // Extract the result from the shared state
+    Arc::try_unwrap(best_result)
+        .expect("Arc unwrap failed")
+        .into_inner()
+        .expect("Mutex lock failed")
+        .result
 }
 
 #[inline]
@@ -1146,6 +1203,24 @@ mod test {
         let mut inputs = setup_lowestlarger_output_groups();
         let mut options = setup_options(40000);
         let result = select_coin_lowestlarger(&inputs, options);
+        assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
+    }
+
+    #[test]
+    fn test_select_coin_successful() {
+        let inputs = setup_basic_output_groups();
+        let options = setup_options(1500);
+        let result = select_coin(&inputs, options);
+        assert!(result.is_ok());
+        let selection_output = result.unwrap();
+        assert!(!selection_output.selected_inputs.is_empty());
+    }
+
+    #[test]
+    fn test_select_coin_insufficient_funds() {
+        let inputs = setup_basic_output_groups();
+        let options = setup_options(7000); // Set a target value higher than the sum of all inputs
+        let result = select_coin(&inputs, options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
 }
