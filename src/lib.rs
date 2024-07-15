@@ -436,20 +436,16 @@ pub fn select_coin(
         select_coin_srd,
         select_coin_knapsack, // Future algorithms can be added here
     ];
-
     // Shared result for all threads
     let best_result = Arc::new(Mutex::new(SharedState {
         result: Err(SelectionError::NoSolutionFound),
         any_success: false,
     }));
-
     let mut handles = vec![];
-
     for &algorithm in &algorithms {
         let best_result_clone = Arc::clone(&best_result);
         let inputs_clone = inputs.to_vec();
         let options_clone = options;
-
         let handle = thread::spawn(move || {
             let result = algorithm(&inputs_clone, options_clone);
             let mut state = best_result_clone.lock().unwrap();
@@ -471,21 +467,18 @@ pub fn select_coin(
                 }
             }
         });
-
         handles.push(handle);
     }
-
     // Wait for all threads to finish
     for handle in handles {
         handle.join().expect("Thread panicked");
     }
-
     // Extract the result from the shared state
-    let final_state = Arc::try_unwrap(best_result)
+    Arc::try_unwrap(best_result)
         .expect("Arc unwrap failed")
         .into_inner()
-        .expect("Mutex lock failed");
-    final_state.result
+        .expect("Mutex lock failed")
+        .result
 }
 
 #[inline]
