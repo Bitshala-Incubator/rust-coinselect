@@ -434,7 +434,7 @@ pub fn select_coin(
         select_coin_fifo,
         select_coin_lowestlarger,
         select_coin_srd,
-        // Future algorithms can be added here
+        select_coin_knapsack, // Future algorithms can be added here
     ];
 
     // Shared result for all threads
