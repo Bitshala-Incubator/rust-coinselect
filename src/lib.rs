@@ -315,6 +315,13 @@ pub fn select_coin_fifo(
 
     for (index, inputs) in sorted_inputs {
         estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
+        println!("estimated fees {}", estimated_fees);
+        println!("input {}", inputs.value);
+        let outter = (options.target_value
+            + estimated_fees.max(options.min_absolute_fee)
+            + options.min_drain_value);
+        println!("estimated target {}", outter);
+
         if accumulated_value
             >= (options.target_value
                 + estimated_fees.max(options.min_absolute_fee)
@@ -325,7 +332,10 @@ pub fn select_coin_fifo(
         accumulated_value += inputs.value;
         accumulated_weight += inputs.weight;
         selected_inputs.push(index);
+        println!("accumulated value {}", accumulated_value);
+
     }
+    println!("accumulated weight {}", accumulated_weight);
     if accumulated_value
         < (options.target_value
             + estimated_fees.max(options.min_absolute_fee)
@@ -686,6 +696,28 @@ mod test {
             excess_strategy: ExcessStrategy::ToDrain,
         }
     }
+
+    fn fifo_setup_output_groups(
+        value_sequence: Vec<(u64,u32)>,
+        weight: u32,
+        target_feerate: f32,
+    ) -> Vec<OutputGroup> {
+        let mut inputs: Vec<OutputGroup> = Vec::new();
+        for (value, sequence) in value_sequence.into_iter() {
+            // input value = effective value + fees
+            // Example If we want our input to be equal to 1 CENT while being considered by knapsack(effective value), we have to increase the input by the fees to beginwith
+            let value: u64 = value.saturating_add(calculate_fee(weight, target_feerate));
+            inputs.push(OutputGroup {
+                value,
+                weight,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: Some(sequence),
+            })
+        }
+        inputs
+    }
+
     fn knapsack_setup_options(adjusted_target: u64, target_feerate: f32) -> CoinSelectionOpt {
         let min_drain_value = 500;
         let base_weight = 10;
@@ -1224,5 +1256,26 @@ mod test {
         let options = setup_options(7000); // Set a target value higher than the sum of all inputs
         let result = select_coin(&inputs, options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
+    }
+
+    #[test]
+    fn test_select_coin_fifo_successful() {
+        let mut options = setup_options(1300);
+        options.min_absolute_fee = 0;
+        options.min_drain_value = 0;
+        options.excess_strategy = ExcessStrategy::ToRecipient;
+        let special_inputs = vec![(300,3), (400,5), (500,4), (600, 2), (700, 1), (800,6)];
+        let inputs = fifo_setup_output_groups(special_inputs, 10, options.target_feerate);
+        let select_coin_result = select_coin(&inputs, options);
+        let fifo_result = select_coin_fifo(&inputs, options);
+        assert!(select_coin_result.is_ok());
+        assert!(fifo_result.is_ok());
+        let fifo_output = fifo_result.unwrap();
+        let select_coin_output = select_coin_result.unwrap();
+        println!("{:?}", fifo_output.selected_inputs);
+        println!("{:?}", select_coin_output.selected_inputs);
+        assert_eq!(fifo_output.waste.0, select_coin_output.waste.0);
+        // let selection_output = result.unwrap();
+        // assert!(!selection_output.selected_inputs.is_empty());
     }
 }
