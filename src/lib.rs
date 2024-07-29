@@ -1,11 +1,17 @@
 #![allow(unused)]
+#![no_std]
 
 //! A blockchain-agnostic Rust Coinselection library
 
 use rand::{seq::SliceRandom, thread_rng, Rng};
-use std::cmp::Reverse;
-use std::collections::HashSet;
+extern crate alloc;
+use alloc::vec;
+use alloc::vec::{Vec};
+use core::num;
+use alloc::collections::BTreeSet;
+use core::cmp::Reverse;
 use std::hash::{Hash, Hasher};
+
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -151,7 +157,7 @@ pub fn select_coin_knapsack(
 /// smaller_coins should be sorted in descending order based on the value of the OutputGroup, and every OutputGroup value should be less than adjusted_target
 fn calculate_accumulated_weight(
     smaller_coins: &[(usize, EffectiveValue, Weight)],
-    selected_inputs: &HashSet<usize>,
+    selected_inputs: &BTreeSet<usize>,
 ) -> u32 {
     let mut accumulated_weight: u32 = 0;
     for &(index, _value, weight) in smaller_coins {
@@ -168,9 +174,9 @@ fn knap_sack(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    let mut selected_inputs: HashSet<usize> = HashSet::new();
+    let mut selected_inputs: BTreeSet<usize> = BTreeSet::new();
     let mut accumulated_value: u64 = 0;
-    let mut best_set: HashSet<usize> = HashSet::new();
+    let mut best_set: BTreeSet<usize> = BTreeSet::new();
     let mut best_set_value: u64 = u64::MAX;
     let mut rng = thread_rng();
     for i in 1..=1000 {
@@ -511,6 +517,7 @@ fn calculate_waste(
 #[inline]
 fn calculate_fee(weight: u32, rate: f32) -> u64 {
     (weight as f32 * rate).ceil() as u64
+    num::
 }
 
 /// Returns the effective value which is the actual value minus the estimated fee of the OutputGroup
