@@ -16,7 +16,7 @@ The following literature describes the current state of coin selection in the Bi
 - A Survey on Coin Selection Algorithms in UTXO-based Blockchains: [PDF](./docs/coinselectionpdf)
 - Bitcoin Core's Coin selection module: [GitHub](https://github.com/bitcoin/bitcoin/blob/master/src/wallet/coinselection.cpp)
 - Bcoin's Coin selector: [GitHub](https://github.com/bcoin-org/bcoin/blob/master/lib/wallet/coinselector.js)
-- A rough implementation of the Lowest Larger Algorithm: [GitHub](https://github.com/Bitshala-Incubator/silent-pay/blob/main/src/wallet/coin-selector.ts)
+- A rough implementation of the Lowest Larger Algorithm: [GitHub](https://github.com/Bitshala-Incubator/silent-pay/blob/main/packages/wallet/src/coin-selector.ts)
 - Waste Metric Calculation: [GitHub](https://github.com/bitcoin/bitcoin/blob/baed5edeb611d949982c849461949c645f8998a7/src/wallet/coinselection.cpp#L795)
 
 ## Technical Scope
