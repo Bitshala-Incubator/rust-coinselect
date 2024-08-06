@@ -3,17 +3,21 @@
 
 //! A blockchain-agnostic Rust Coinselection library
 
-use rand::{seq::SliceRandom, thread_rng, Rng};
+use rand::rngs::SmallRng;
+use rand::{Rng, seq::SliceRandom,SeedableRng};
 extern crate alloc;
 use alloc::vec;
 use alloc::vec::{Vec};
 use core::num;
+use std::rc;
 use alloc::collections::BTreeSet;
 use core::cmp::Reverse;
-use std::hash::{Hash, Hasher};
+use libm::ceil;
 
-use std::sync::{Arc, Mutex};
-use std::thread;
+#[cfg(feature = "std")]
+extern crate std;
+
+
 
 /// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
 /// single UTXO, or a group of UTXOs that should be spent together.
@@ -128,9 +132,10 @@ fn bnb(
 type EffectiveValue = u64;
 type Weight = u32;
 
-pub fn select_coin_knapsack(
+pub fn select_coin_knapsack<T: Rng>(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
+    mut rng: Option<T>
 ) -> Result<SelectionOutput, SelectionError> {
     let mut adjusted_target = options.target_value
         + options.min_drain_value
@@ -149,7 +154,7 @@ pub fn select_coin_knapsack(
         .collect::<Vec<_>>();
     smaller_coins.sort_by_key(|&(_, value, _)| Reverse(value));
 
-    knap_sack(adjusted_target, &smaller_coins, inputs, options)
+    knap_sack(adjusted_target, &smaller_coins, inputs, options, rng)
 }
 
 /// adjusted_target should be target value plus estimated fee
@@ -168,17 +173,18 @@ fn calculate_accumulated_weight(
     accumulated_weight
 }
 
-fn knap_sack(
+fn knap_sack<T: Rng>(
     adjusted_target: u64,
     smaller_coins: &[(usize, EffectiveValue, Weight)],
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
+    mut rng: Option<T>
 ) -> Result<SelectionOutput, SelectionError> {
     let mut selected_inputs: BTreeSet<usize> = BTreeSet::new();
     let mut accumulated_value: u64 = 0;
     let mut best_set: BTreeSet<usize> = BTreeSet::new();
     let mut best_set_value: u64 = u64::MAX;
-    let mut rng = thread_rng();
+    let mut rng = rng.unwrap();
     for i in 1..=1000 {
         for pass in 1..=2 {
             for &(index, value, weight) in smaller_coins {
@@ -241,9 +247,10 @@ fn knap_sack(
 
 /// Perform Coinselection via Lowest Larger algorithm.
 /// Return NoSolutionFound, if no solution exists.
-pub fn select_coin_lowestlarger(
+pub fn select_coin_lowestlarger<T: Rng>(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
+    mut rng: Option<T>,
 ) -> Result<SelectionOutput, SelectionError> {
     let mut accumulated_value: u64 = 0;
     let mut accumulated_weight: u32 = 0;
@@ -302,9 +309,10 @@ pub fn select_coin_lowestlarger(
 
 /// Perform Coinselection via First-In-First-Out algorithm.
 /// Return NoSolutionFound, if no solution exists.
-pub fn select_coin_fifo(
+pub fn select_coin_fifo<T: Rng>(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
+    mut rng: Option<T>
 ) -> Result<SelectionOutput, SelectionError> {
     let mut accumulated_value: u64 = 0;
     let mut accumulated_weight: u32 = 0;
@@ -354,19 +362,17 @@ pub fn select_coin_fifo(
 
 /// Perform Coinselection via Single Random Draw.
 /// Return NoSolutionFound, if no solution exists.
-pub fn select_coin_srd(
+pub fn select_coin_srd<T: Rng>(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
+    mut rng: Option<T>
 ) -> Result<SelectionOutput, SelectionError> {
-    // Randomize the inputs order to simulate the random draw
-    let mut rng = thread_rng();
-
     // In out put we need to specify the indexes of the inputs in the given order
     // So keep track of the indexes when randomiz ing the vec
     let mut randomized_inputs: Vec<_> = inputs.iter().enumerate().collect();
 
     // Randomize the inputs order to simulate the random draw
-    let mut rng = thread_rng();
+    let mut rng = rng.unwrap();
     randomized_inputs.shuffle(&mut rng);
 
     let mut accumulated_value = 0;
@@ -421,11 +427,12 @@ pub fn select_coin_srd(
 
 /// The Global Coinselection API that performs all the algorithms and proudeces result with least [WasteMetric].
 /// At least one selection solution should be found.
-type CoinSelectionFn =
-    fn(&[OutputGroup], CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
+
+type CoinSelectionFn<T> =
+    fn(&[OutputGroup], CoinSelectionOpt, Option<T>) -> Result<SelectionOutput, SelectionError>;
 
 #[derive(Debug)]
-struct SharedState {
+struct CoinSelectionState {
     result: Result<SelectionOutput, SelectionError>,
     any_success: bool,
 }
@@ -433,25 +440,67 @@ struct SharedState {
 pub fn select_coin(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
+    random_seed: u64,
 ) -> Result<SelectionOutput, SelectionError> {
-    let algorithms: Vec<CoinSelectionFn> = vec![
+    let small_rng = SmallRng::seed_from_u64(random_seed);
+    let algorithms:  Vec<CoinSelectionFn<SmallRng>> = vec![
+        select_coin_fifo,
+        select_coin_lowestlarger,
+        select_coin_srd,
+        select_coin_knapsack, // Future algorithms can be added here
+    ];
+    let mut coin_selection_result: Vec<Result<SelectionOutput, SelectionError>> = Vec::new();
+    for &algorithm in &algorithms {
+        let inputs_clone = inputs.to_vec();
+        let options_clone = options;
+        let result = algorithm(&inputs_clone, options_clone, Some(small_rng.clone()));
+        coin_selection_result.push(result)
+    }
+    let best_result = coin_selection_result.into_iter().filter_map(|r | {
+        match r {
+            Ok(selection) => Some(selection),
+            Err(_) => None,
+        }
+    })
+    .reduce(|best, alt| {
+        if alt.waste.0 < best.waste.0 {
+            return alt;
+        }
+        return best
+    })
+    .ok_or(SelectionError::NoSolutionFound);
+
+    return  best_result; 
+
+
+}
+
+#[cfg(feature = "std")]
+pub fn select_coin_threaded(
+    inputs: &[OutputGroup],
+    options: CoinSelectionOpt,
+) -> Result<SelectionOutput, SelectionError> {
+    use rand::rngs::ThreadRng;
+
+    let algorithms:  Vec<CoinSelectionFn<ThreadRng>> = vec![
         select_coin_fifo,
         select_coin_lowestlarger,
         select_coin_srd,
         select_coin_knapsack, // Future algorithms can be added here
     ];
     // Shared result for all threads
-    let best_result = Arc::new(Mutex::new(SharedState {
+    let best_result = std::sync::Arc::new(std::sync::Mutex::new(CoinSelectionState {
         result: Err(SelectionError::NoSolutionFound),
         any_success: false,
     }));
     let mut handles = vec![];
     for &algorithm in &algorithms {
-        let best_result_clone = Arc::clone(&best_result);
+        let best_result_clone = std::sync::Arc::clone(&best_result);
         let inputs_clone = inputs.to_vec();
         let options_clone = options;
-        let handle = thread::spawn(move || {
-            let result = algorithm(&inputs_clone, options_clone);
+        let handle = std::thread::spawn(move || {
+            let mut threaded_rng = rand::thread_rng();
+            let result = algorithm(&inputs_clone, options_clone, Some(threaded_rng));
             let mut state = best_result_clone.lock().unwrap();
             match result {
                 Ok(selection_output) => {
@@ -478,7 +527,7 @@ pub fn select_coin(
         handle.join().expect("Thread panicked");
     }
     // Extract the result from the shared state
-    Arc::try_unwrap(best_result)
+    std::sync::Arc::try_unwrap(best_result)
         .expect("Arc unwrap failed")
         .into_inner()
         .expect("Mutex lock failed")
@@ -501,7 +550,7 @@ fn calculate_waste(
 
     let mut waste: u64 = 0;
     if let Some(long_term_feerate) = options.long_term_feerate {
-        waste = (accumulated_weight as f32 * (options.target_feerate - long_term_feerate)).ceil()
+        waste = ceil((accumulated_weight as f32 * (options.target_feerate - long_term_feerate)).into())
             as u64;
     }
     if options.excess_strategy != ExcessStrategy::ToDrain {
@@ -516,8 +565,7 @@ fn calculate_waste(
 
 #[inline]
 fn calculate_fee(weight: u32, rate: f32) -> u64 {
-    (weight as f32 * rate).ceil() as u64
-    num::
+    ceil((weight as f32 * rate).into()) as u64
 }
 
 /// Returns the effective value which is the actual value minus the estimated fee of the OutputGroup
@@ -531,12 +579,15 @@ fn effective_value(output: &OutputGroup, feerate: f32) -> u64 {
 #[cfg(test)]
 mod test {
 
+    use std::println;
+
     use super::*;
     const CENT: f64 = 1000000.0;
     const COIN: f64 = 100000000.0;
     const RUN_TESTS: u32 = 100;
     const RUN_TESTS_SLIM: u32 = 10;
     const RANDOM_REPEATS: u32 = 5;
+    use rand::{self, rngs::ThreadRng};
 
     fn setup_basic_output_groups() -> Vec<OutputGroup> {
         vec![
@@ -758,14 +809,15 @@ mod test {
     fn test_successful_selection() {
         let mut inputs = setup_basic_output_groups();
         let mut options = setup_options(2500);
-        let mut result = select_coin_srd(&inputs, options);
+        let mut threaded_rng = rand::thread_rng();
+        let mut result = select_coin_srd::<ThreadRng>(&inputs, options, Some(threaded_rng));
         assert!(result.is_ok());
         let mut selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
 
         inputs = setup_output_groups_withsequence();
         options = setup_options(500);
-        result = select_coin_fifo(&inputs, options);
+        result = select_coin_fifo::<ThreadRng>(&inputs, options, None);
         assert!(result.is_ok());
         selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
@@ -773,17 +825,21 @@ mod test {
 
     fn test_insufficient_funds() {
         let inputs = setup_basic_output_groups();
+        let mut threaded_rng = rand::thread_rng();
         let options = setup_options(7000); // Set a target value higher than the sum of all inputs
-        let result = select_coin_srd(&inputs, options);
+        let result = select_coin_srd(&inputs, options, Some(threaded_rng));
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
     fn test_core_knapsack_vectors() {
         let mut inputs_verify: Vec<usize> = Vec::new();
+        let mut threaded_rng = rand::thread_rng();
         for i in 0..RUN_TESTS {
             // Test if Knapsack retruns an Error
+            
+
             let mut inputs: Vec<OutputGroup> = Vec::new();
             let mut options = knapsack_setup_options(1000, 0.33);
-            let mut result = select_coin_knapsack(&inputs, options);
+            let mut result = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone()));
             assert!(matches!(result, Err(SelectionError::NoSolutionFound)));
 
             // Adding 2 CENT and 1 CENT to the wallet and testing if knapsack can select the two inputs for a 3 CENT Output
@@ -793,7 +849,7 @@ mod test {
                 0.56,
             );
             options = knapsack_setup_options((3.0 * CENT).round() as u64, 0.56);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options,Some(threaded_rng.clone())) {
                 // Checking if knapsack selectes exactly two inputs
                 assert_eq!(result.selected_inputs.len(), 2);
                 // Checking if the selected inputs are 2 and 1 CENTS
@@ -816,7 +872,7 @@ mod test {
             );
             // Testing if knapsack can select 4 inputs (2,5,10,20) CENTS to make 37 CENTS
             options = knapsack_setup_options((37.0 * CENT).round() as u64, 0.56);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 // Checking if knapsack selects exactly 4 inputs
                 assert_eq!(result.selected_inputs.len(), 4);
                 // Checking if the selected inputs are 20, 10, 5, 2 CENTS
@@ -828,7 +884,7 @@ mod test {
             inputs_verify.clear();
             // Testing if knapsack can select all the available inputs (2,1,5,10,20) CENTS to make 38 CENTS
             options = knapsack_setup_options((38.0 * CENT).round() as u64, 0.56);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 // Cehcking if knapsack selects exactly 5 inputs
                 assert_eq!(result.selected_inputs.len(), 5);
                 // Cehcking if the selected inputs are 20, 10, 5, 2, 1 CENTS
@@ -840,7 +896,7 @@ mod test {
             inputs_verify.clear();
             // Testing if knapsack can select 3 inputs (5,10,20) CENTS to make 34 CENTS
             options = knapsack_setup_options((34.0 * CENT).round() as u64, 0.56);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 // Checking if knapsack selects exactly 3 inputs
                 assert_eq!(result.selected_inputs.len(), 3);
                 // Cehcking if the selected inputs are 20, 10, 5
@@ -852,7 +908,7 @@ mod test {
             inputs_verify.clear();
             // Testing if knapsack can select 2 inputs (5,2) CENTS to make 7 CENTS
             options = knapsack_setup_options((7.0 * CENT).round() as u64, 0.56);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 // Chekcing if knapsack selects exactly 2 inputs
                 assert_eq!(result.selected_inputs.len(), 2);
                 // Checking if the selected inputs are 5, 2 CENTS
@@ -864,7 +920,7 @@ mod test {
             inputs_verify.clear();
             // Testing if knapsack can select 3 inputs (5,2,1) CENTS to make 8 CENTS
             options = knapsack_setup_options((8.0 * CENT).round() as u64, 0.56);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 // Chekcing if knapsack selects exactly 3 inputs
                 assert_eq!(result.selected_inputs.len(), 3);
                 // Checking if the selected inputs are 5,2,1 CENTS
@@ -876,7 +932,7 @@ mod test {
             inputs_verify.clear();
             // Testing if knapsack can select 1 input (10) CENTS to make 9 CENTS
             options = knapsack_setup_options((10.0 * CENT).round() as u64, 0.56);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options,Some(threaded_rng.clone())) {
                 // Chekcing if knapsack selects exactly 1 inputs
                 assert_eq!(result.selected_inputs.len(), 1);
                 // Checking if the selected inputs are 10 CENTS
@@ -903,11 +959,11 @@ mod test {
             );
             // Testing if Knapsack returns an Error while trying to select inputs totalling 72 CENTS
             options = knapsack_setup_options((72.0 * CENT).round() as u64, 0.77);
-            result = select_coin_knapsack(&inputs, options);
+            result = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone()));
             assert!(matches!(result, Err(SelectionError::NoSolutionFound)));
             // Testing if knapsack can select 3 input (6,7,8) CENTS to make 16 CENTS
             options = knapsack_setup_options((16.0 * CENT).round() as u64, 0.77);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 // Chekcing if knapsack selects exactly 3 inputs
                 assert_eq!(result.selected_inputs.len(), 3);
                 // Checking if the selected inputs are 6,7,8 CENTS
@@ -926,7 +982,7 @@ mod test {
             );
             // Testing if knapsack can select 3 input (5,6,7) CENTS to make 16 CENTS
             options = knapsack_setup_options((16.0 * CENT).round() as u64, 0.77);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options,Some(threaded_rng.clone())) {
                 // Chekcing if knapsack selects exactly 3 inputs
                 assert_eq!(result.selected_inputs.len(), 3);
                 // Checking if the selected inputs are 6,7,8 CENTS
@@ -946,7 +1002,7 @@ mod test {
             );
             // Testing if knapsack can select 2 input (5,6) CENTS to make 11 CENTS
             options = knapsack_setup_options((11.0 * CENT).round() as u64, 0.77);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 // Chekcing if knapsack selects exactly 2 inputs
                 assert_eq!(result.selected_inputs.len(), 2);
                 // Checking if the selected input is 5,6 CENTS
@@ -972,7 +1028,7 @@ mod test {
             );
             // Testing if knapsack can select 3 input (0.1, 0.4, 0.5| 0.2, 0.3, 0.5) CENTS to make 1 CENTS
             options = knapsack_setup_options((1.0 * CENT).round() as u64, 0.56);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 // Chekcing if knapsack selects exactly 3 inputs
                 assert_eq!(result.selected_inputs.len(), 3);
                 // Checking if the selected input is 0.1,0.4,0.5 CENTS
@@ -1010,7 +1066,7 @@ mod test {
             );
             // Testing if knapsack can select 10 inputs to make 500,000 COINS
             options = knapsack_setup_options((500000.0 * COIN).round() as u64, 0.59);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 // Chekcing if knapsack selects exactly 10 inputs
                 assert_eq!(result.selected_inputs.len(), 10);
             }
@@ -1029,7 +1085,7 @@ mod test {
             );
             // Testing if knapsack can select 2 input (0.4,0.6) CENTS to make 1 CENTs
             options = knapsack_setup_options((1.0 * CENT).round() as u64, 0.56);
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 // Chekcing if knapsack selects exactly 2 inputs
                 assert_eq!(result.selected_inputs.len(), 2);
                 // Checking if the selected input is 0.4,0.6 CENTS
@@ -1065,7 +1121,7 @@ mod test {
                 min_drain_value: (0.05 * CENT).round() as u64, // Setting minimum drain value = 0.05 CENT. This will make the algorithm to avoid creating small change.
                 excess_strategy: ExcessStrategy::ToDrain,
             };
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 // Chekcing if knapsack selects exactly 2 inputs
                 assert_eq!(result.selected_inputs.len(), 2);
                 // Checking if the selected input is 0.4,0.6 CENTS
@@ -1098,7 +1154,8 @@ mod test {
             let mut options = knapsack_setup_options(2000, 0.34);
             // performing the assertion operation 10 times
             for j in 0..RUN_TESTS_SLIM {
-                if let Ok(result) = select_coin_knapsack(&inputs, options) {
+                let mut threaded_rng = rand::thread_rng();
+                if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng)) {
                     if let Some(amt_in_inputs) = inputs.first() {
                         // Checking if the (input's value) - 2000 is less than CENT
                         // If so, more than one input is required to meet the selection target of 2000 sats
@@ -1134,10 +1191,10 @@ mod test {
         let mut selected_input_1: Vec<usize> = Vec::new();
         let mut selected_input_2: Vec<usize> = Vec::new();
         for j in 0..RUN_TESTS {
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 selected_input_1 = result.selected_inputs.clone();
             }
-            if let Ok(result) = select_coin_knapsack(&inputs, options) {
+            if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                 selected_input_2 = result.selected_inputs.clone();
             }
             // Checking if the selected inputs, in two consequtive calls of the knapsack function are not the same
@@ -1165,10 +1222,11 @@ mod test {
         let mut fails = 0;
         for k in 0..RUN_TESTS {
             for l in 0..RANDOM_REPEATS {
-                if let Ok(result) = select_coin_knapsack(&inputs, options) {
+                let mut threaded_rng = rand::thread_rng();
+                if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng.clone())) {
                     selected_input_1 = result.selected_inputs.clone();
                 }
-                if let Ok(result) = select_coin_knapsack(&inputs, options) {
+                if let Ok(result) = select_coin_knapsack(&inputs, options, Some(threaded_rng)) {
                     selected_input_2 = result.selected_inputs.clone();
                 }
                 if selected_input_1 == selected_input_2 {
@@ -1199,7 +1257,7 @@ mod test {
     fn test_lowestlarger_successful() {
         let mut inputs = setup_lowestlarger_output_groups();
         let mut options = setup_options(20000);
-        let result = select_coin_lowestlarger(&inputs, options);
+        let result = select_coin_lowestlarger::<ThreadRng>(&inputs, options, None);
         assert!(result.is_ok());
         let selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
@@ -1209,7 +1267,7 @@ mod test {
     fn test_lowestlarger_insufficient() {
         let mut inputs = setup_lowestlarger_output_groups();
         let mut options = setup_options(40000);
-        let result = select_coin_lowestlarger(&inputs, options);
+        let result = select_coin_lowestlarger::<ThreadRng>(&inputs, options, None);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
 
@@ -1217,7 +1275,7 @@ mod test {
     fn test_select_coin_successful() {
         let inputs = setup_basic_output_groups();
         let options = setup_options(1500);
-        let result = select_coin(&inputs, options);
+        let result = select_coin(&inputs, options, 6000);
         assert!(result.is_ok());
         let selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
@@ -1227,7 +1285,7 @@ mod test {
     fn test_select_coin_insufficient_funds() {
         let inputs = setup_basic_output_groups();
         let options = setup_options(7000); // Set a target value higher than the sum of all inputs
-        let result = select_coin(&inputs, options);
+        let result = select_coin(&inputs, options, 6000);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
 }
