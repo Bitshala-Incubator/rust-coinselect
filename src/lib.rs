@@ -183,7 +183,7 @@ fn knap_sack<T: Rng>(
     let mut accumulated_value: u64 = 0;
     let mut best_set: BTreeSet<usize> = BTreeSet::new();
     let mut best_set_value: u64 = u64::MAX;
-    let mut rng = rng.unwrap();
+    let mut rng = rng.expect("need a random number generator");
     for i in 1..=1000 {
         for pass in 1..=2 {
             for &(index, value, weight) in smaller_coins {
@@ -249,7 +249,7 @@ fn knap_sack<T: Rng>(
 pub fn select_coin_lowestlarger<T: Rng>(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
-    mut rng: Option<T>,
+    _: Option<T>,
 ) -> Result<SelectionOutput, SelectionError> {
     let mut accumulated_value: u64 = 0;
     let mut accumulated_weight: u32 = 0;
@@ -311,7 +311,7 @@ pub fn select_coin_lowestlarger<T: Rng>(
 pub fn select_coin_fifo<T: Rng>(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
-    mut rng: Option<T>
+    _: Option<T>
 ) -> Result<SelectionOutput, SelectionError> {
     let mut accumulated_value: u64 = 0;
     let mut accumulated_weight: u32 = 0;
@@ -371,7 +371,7 @@ pub fn select_coin_srd<T: Rng>(
     let mut randomized_inputs: Vec<_> = inputs.iter().enumerate().collect();
 
     // Randomize the inputs order to simulate the random draw
-    let mut rng = rng.unwrap();
+    let mut rng = rng.expect("need a random number generator");
     randomized_inputs.shuffle(&mut rng);
 
     let mut accumulated_value = 0;
@@ -501,22 +501,14 @@ pub fn select_coin_threaded(
             let mut threaded_rng = rand::thread_rng();
             let result = algorithm(&inputs_clone, options_clone, Some(threaded_rng));
             let mut state = best_result_clone.lock().unwrap();
-            match result {
-                Ok(selection_output) => {
-                    if match &state.result {
-                        Ok(current_best) => selection_output.waste.0 < current_best.waste.0,
-                        Err(_) => true,
-                    } {
-                        state.result = Ok(selection_output);
-                        state.any_success = true;
+            if let Ok(selection_output) = result {  
+                if match &state.result {
+                    Ok(current_best) => selection_output.waste.0 < current_best.waste.0,
+                    Err(_) => true,
+                } {
+                    state.result = Ok(selection_output);
+                    state.any_success = true;
                     }
-                }
-                Err(e) => {
-                    if e == SelectionError::InsufficientFunds && !state.any_success {
-                        // Only set to InsufficientFunds if no algorithm succeeded
-                        state.result = Err(SelectionError::InsufficientFunds);
-                    }
-                }
             }
         });
         handles.push(handle);
@@ -1279,12 +1271,30 @@ mod test {
         let selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
     }
+    
+    #[test]
+    fn test_select_coin_std_successful() {
+        let inputs = setup_basic_output_groups();
+        let options = setup_options(1500);
+        let result = select_coin_threaded(&inputs, options);
+        assert!(result.is_ok());
+        let selection_output = result.unwrap();
+        assert!(!selection_output.selected_inputs.is_empty());
+    }
 
     #[test]
-    fn test_select_coin_insufficient_funds() {
+    fn test_select_coin_unsuccessful() {
         let inputs = setup_basic_output_groups();
         let options = setup_options(7000); // Set a target value higher than the sum of all inputs
         let result = select_coin(&inputs, options, 6000);
-        assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
+        assert!(matches!(result, Err(SelectionError::NoSolutionFound)));
+    }
+
+    #[test]
+    fn test_select_coin_std_unsuccessful() {
+        let inputs = setup_basic_output_groups();
+        let options = setup_options(7000); // Set a target value higher than the sum of all inputs
+        let result = select_coin_threaded(&inputs, options);
+        assert!(matches!(result, Err(SelectionError::NoSolutionFound)));
     }
 }
