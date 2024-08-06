@@ -9,7 +9,6 @@ extern crate alloc;
 use alloc::vec;
 use alloc::vec::{Vec};
 use core::num;
-use std::rc;
 use alloc::collections::BTreeSet;
 use core::cmp::Reverse;
 use libm::ceil;
