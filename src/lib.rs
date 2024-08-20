@@ -86,7 +86,7 @@ pub enum SelectionError {
 /// During low fee rate environment, slecting more number of inputs will help minimize the over all fees paid by the wallet during its lifetime.
 /// This is used to compare various selection algorithm and find the most
 /// optimizewd solution, represented by least [WasteMetric] value.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct WasteMetric(u64);
 
 /// The result of selection algorithm
@@ -1222,5 +1222,71 @@ mod test {
         let options = setup_options(7000); // Set a target value higher than the sum of all inputs
         let result = select_coin(&inputs, options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
+    }
+
+    #[test]
+    fn test_select_coin_knapsack() {
+        let inputs = vec![
+            OutputGroup {
+                value: 1000,
+                weight: 1,
+                creation_sequence: Some(0),
+                input_count: 1,
+                is_segwit: false,
+            }, // Small UTXO
+            OutputGroup {
+                value: 2000,
+                weight: 2,
+                creation_sequence: Some(1),
+                input_count: 1,
+                is_segwit: false,
+            }, // Medium UTXO
+            OutputGroup {
+                value: 3000,
+                weight: 3,
+                creation_sequence: Some(2),
+                input_count: 1,
+                is_segwit: false,
+            }, // Large UTXO
+            OutputGroup {
+                value: 4000,
+                weight: 4,
+                creation_sequence: Some(3),
+                input_count: 1,
+                is_segwit: false,
+            }, // Extra Large UTXO
+        ];
+
+        let target_value = 5000;
+
+        let options = CoinSelectionOpt {
+            target_value,
+            target_feerate: 1.0,
+            min_absolute_fee: 0,
+            base_weight: 1,
+            long_term_feerate: Some(0.5),
+            min_drain_value: 100,
+            excess_strategy: ExcessStrategy::ToDrain,
+            drain_weight: 1,
+            drain_cost: 1,
+            cost_per_input: 1,
+            cost_per_output: 1,
+        };
+
+        let mut selection_result = select_coin(&inputs, options.clone()).unwrap();
+        let mut knapsack_result = select_coin_knapsack(&inputs, options).unwrap();
+
+        // Sort the selected inputs to ignore the order
+        selection_result.selected_inputs.sort();
+        knapsack_result.selected_inputs.sort();
+
+        // Compare the sorted results
+        assert_eq!(
+            selection_result.selected_inputs,
+            knapsack_result.selected_inputs
+        );
+
+        // Compare waste metrics
+        assert_eq!(selection_result.waste, knapsack_result.waste);
     }
 }
