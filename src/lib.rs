@@ -1257,10 +1257,8 @@ mod test {
             }, // Extra Large UTXO
         ];
 
-        let target_value = 5000;
-
         let options = CoinSelectionOpt {
-            target_value,
+            target_value: 5000,
             target_feerate: 1.0,
             min_absolute_fee: 0,
             base_weight: 1,
