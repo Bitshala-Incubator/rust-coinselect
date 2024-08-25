@@ -1271,20 +1271,29 @@ mod test {
             cost_per_output: 1,
         };
 
-        let mut selection_result = select_coin(&inputs, options.clone()).unwrap();
-        let mut knapsack_result = select_coin_knapsack(&inputs, options).unwrap();
+        let selection_result = select_coin(&inputs, options).unwrap();
+        let knapsack_result = select_coin_knapsack(&inputs, options).unwrap();
 
         // Sort the selected inputs to ignore the order
-        selection_result.selected_inputs.sort();
-        knapsack_result.selected_inputs.sort();
+        let mut selection_inputs = selection_result.selected_inputs.clone();
+        let mut knapsack_inputs = knapsack_result.selected_inputs.clone();
+        selection_inputs.sort();
+        knapsack_inputs.sort();
 
         // Compare the sorted results
-        assert_eq!(
-            selection_result.selected_inputs,
-            knapsack_result.selected_inputs
-        );
+        assert_eq!(selection_inputs, knapsack_inputs);
 
         // Compare waste metrics
         assert_eq!(selection_result.waste, knapsack_result.waste);
+
+        // Additional assertions to compare against other algorithms (e.g., fifo, bnb, srd)
+        let fifo_result = select_coin_fifo(&inputs, options).unwrap();
+        let bnb_result = select_coin_bnb(&inputs, options).unwrap();
+        let srd_result = select_coin_srd(&inputs, options).unwrap();
+
+        // Ensure that knapsack result is not the same as other algorithms
+        assert_ne!(knapsack_result.selected_inputs, fifo_result.selected_inputs);
+        assert_ne!(knapsack_result.selected_inputs, bnb_result.selected_inputs);
+        assert_ne!(knapsack_result.selected_inputs, srd_result.selected_inputs);
     }
 }
