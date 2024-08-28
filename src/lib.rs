@@ -306,10 +306,23 @@ pub fn select_coin_fifo(
     let mut estimated_fees: u64 = 0;
 
     // Sorting the inputs vector based on creation_sequence
+    let mut inputs_with_sequence: Vec<_> = inputs
+        .iter()
+        .enumerate()
+        .filter(|(_, og)| og.creation_sequence.is_some())
+        .collect();
 
-    let mut sorted_inputs: Vec<_> = inputs.iter().enumerate().collect();
+    let mut inputs_without_sequence: Vec<_> = inputs
+        .iter()
+        .enumerate()
+        .filter(|(_, og)| og.creation_sequence.is_none())
+        .collect();
 
-    sorted_inputs.sort_by_key(|(_, a)| a.creation_sequence);
+    inputs_with_sequence.sort_by_key(|(_, a)| a.creation_sequence);
+
+    let mut sorted_inputs = Vec::new();
+    sorted_inputs.append(&mut inputs_without_sequence);
+    sorted_inputs.append(&mut inputs_with_sequence);
 
     for (index, inputs) in sorted_inputs {
         estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
@@ -578,6 +591,13 @@ mod test {
                 input_count: 1,
                 is_segwit: false,
                 creation_sequence: Some(1001),
+            },
+            OutputGroup {
+                value: 1500,
+                weight: 150,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
             },
         ]
     }
