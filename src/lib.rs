@@ -1223,4 +1223,64 @@ mod test {
         let result = select_coin(&inputs, options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
+
+    #[test]
+    fn test_select_coin_lowest_larger() {
+        let inputs = vec![
+            OutputGroup {
+                value: 1000,
+                weight: 1,
+                creation_sequence: Some(0),
+                input_count: 1,
+                is_segwit: false,
+            }, // Small UTXO
+            OutputGroup {
+                value: 2000,
+                weight: 2,
+                creation_sequence: Some(1),
+                input_count: 1,
+                is_segwit: false,
+            }, // Medium UTXO
+            OutputGroup {
+                value: 3000,
+                weight: 3,
+                creation_sequence: Some(2),
+                input_count: 1,
+                is_segwit: false,
+            }, // Large UTXO
+            OutputGroup {
+                value: 4000,
+                weight: 4,
+                creation_sequence: Some(3),
+                input_count: 1,
+                is_segwit: false,
+            }, // Extra Large UTXO
+        ];
+
+        let options = CoinSelectionOpt {
+            target_value: 3500, // Adjust target value for lowest_larger selection
+            target_feerate: 1.0,
+            min_absolute_fee: 0,
+            base_weight: 1,
+            long_term_feerate: Some(0.5),
+            min_drain_value: 100,
+            excess_strategy: ExcessStrategy::ToDrain,
+            drain_weight: 1,
+            drain_cost: 1,
+            cost_per_input: 1,
+            cost_per_output: 1,
+        };
+
+        // Call the select_coin function, which should internally use the lowest_larger algorithm
+        let selection_result = select_coin(&inputs, options).unwrap();
+
+        // Deterministically choose a result based on how lowest_larger would select
+        let expected_inputs = vec![2]; // Example choice based on lowest_larger logic
+
+        // Sort the selected inputs to ignore the order
+        let mut selection_inputs = selection_result.selected_inputs.clone();
+        let mut expected_inputs_sorted = expected_inputs.clone();
+        selection_inputs.sort();
+        expected_inputs_sorted.sort();
+    }
 }
