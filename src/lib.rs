@@ -9,26 +9,27 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-/// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
-/// single UTXO, or a group of UTXOs that should be spent together.
-/// The library user is responsible for crafting this structure correctly. Incorrect representation of this
-/// structure will cause incorrect selection result.
+/// Represents an input candidate for Coinselection, either as a single UTXO or a group of UTXOs.
+///
+/// A [`OutputGroup`] can be a single UTXO or a group that should be spent together.
+/// The library user must craft this structure correctly, as incorrect representation can lead to incorrect selection results.
 #[derive(Debug, Clone, Copy)]
 pub struct OutputGroup {
     /// Total value of the UTXO(s) that this [`WeightedValue`] represents.
     pub value: u64,
-    /// Total weight of including this/these UTXO(s).
-    /// `txin` fields: `prevout`, `nSequence`, `scriptSigLen`, `scriptSig`, `scriptWitnessLen`,
-    /// `scriptWitness` should all be included.
+    /// Total weight of including these UTXO(s) in the transaction.
+    ///
+    /// The `txin` fields: `prevout`, `nSequence`, `scriptSigLen`, `scriptSig`, `scriptWitnessLen`,
+    /// and `scriptWitness` should all be included.
     pub weight: u32,
     /// The total number of inputs; so we can calculate extra `varint` weight due to `vin` length changes.
     pub input_count: usize,
     /// Whether this [`OutputGroup`] contains at least one segwit spend.
     pub is_segwit: bool,
-    /// Relative Creation sequence for this group. Only used for FIFO selection. Specify None, if FIFO
-    /// selection is not required.
-    /// sequence numbers are arbitrary index only to denote relative age of utxo group among a set of groups.
-    /// To denote the oldest utxo group, give them a sequence number of Some(0).
+    /// Specifies the relative creation sequence for this group, used only for FIFO selection.
+    ///
+    /// Set to `None` if FIFO selection is not required. Sequence numbers are arbitrary indices that denote the relative age of a UTXO group among a set of groups.
+    /// To denote the oldest UTXO group, assign it a sequence number of `Some(0)`.
     pub creation_sequence: Option<u32>,
 }
 
@@ -52,10 +53,10 @@ pub struct CoinSelectionOpt {
     /// Weight of spending the drain (change) output in the future.
     pub drain_cost: u64,
 
-    /// Estimate of cost of spending an input
+    /// Estimate of cost of spending an input.
     pub cost_per_input: u64,
 
-    /// Estimate of cost of spending the output
+    /// Estimate of cost of spending the output.
     pub cost_per_output: u64,
 
     /// Minimum value allowed for a drain (change) output.
@@ -73,28 +74,28 @@ pub enum ExcessStrategy {
     ToDrain,
 }
 
-/// Error Describing failure of a selection attempt, on any subset of inputs
+/// Error Describing failure of a selection attempt, on any subset of inputs.
 #[derive(Debug, PartialEq)]
 pub enum SelectionError {
     InsufficientFunds,
     NoSolutionFound,
 }
 
-/// Wastemetric, of a selection of inputs, is measured in satoshis. It helps evaluate the selection made by different algorithms in the context of the current and long term fee rate.
-/// It is used to strike a balance between wanting to minimize the current transaction's fees versus minimizing the overall fees paid by the wallet during its lifetime.
-/// During high fee rate environment, selecting fewer number of inputs will help minimize the transaction fees.
-/// During low fee rate environment, slecting more number of inputs will help minimize the over all fees paid by the wallet during its lifetime.
-/// This is used to compare various selection algorithm and find the most
-/// optimizewd solution, represented by least [WasteMetric] value.
+/// Measures the efficiency of input selection in satoshis, helping evaluate algorithms based on current and long-term fee rates.
+///
+/// WasteMetric strikes a balance between minimizing current transaction fees and overall fees during the wallet's lifetime.
+/// In high fee rate environments, selecting fewer inputs reduces transaction fees.
+/// In low fee rate environments, selecting more inputs reduces overall fees.
+/// It compares various selection algorithms to find the most optimized solution, represented by the lowest [WasteMetric] value.
 #[derive(Debug)]
 pub struct WasteMetric(u64);
 
-/// The result of selection algorithm
+/// The result of selection algorithm.
 #[derive(Debug)]
 pub struct SelectionOutput {
-    /// The selected input indices, refers to the indices of the inputs Slice Reference
+    /// The selected input indices, refers to the indices of the inputs Slice Reference.
     pub selected_inputs: Vec<usize>,
-    /// The waste amount, for the above inputs
+    /// The waste amount, for the above inputs.
     pub waste: WasteMetric,
 }
 
@@ -106,7 +107,7 @@ pub fn select_coin_bnb(
     unimplemented!()
 }
 
-/// Return empty vec if no solutions are found
+/// Return empty vec if no solutions are found.
 fn bnb(
     inputs_in_desc_value: &[(usize, OutputGroup)],
     selected_inputs: &[usize],
@@ -146,9 +147,10 @@ pub fn select_coin_knapsack(
     knap_sack(adjusted_target, &smaller_coins, inputs, options)
 }
 
-/// adjusted_target should be target value plus estimated fee
-/// smaller_coins is a slice of pair where the usize refers to the index of the OutputGroup in the inputs given
-/// smaller_coins should be sorted in descending order based on the value of the OutputGroup, and every OutputGroup value should be less than adjusted_target
+/// `adjusted_target` is the target value plus the estimated fee.
+///
+/// `smaller_coins` is a slice of pairs where the `usize` refers to the index of the `OutputGroup` in the provided inputs.
+/// This slice should be sorted in descending order by the value of each `OutputGroup`, with each value being less than `adjusted_target`.
 fn calculate_accumulated_weight(
     smaller_coins: &[(usize, EffectiveValue, Weight)],
     selected_inputs: &HashSet<usize>,
@@ -233,8 +235,9 @@ fn knap_sack(
     }
 }
 
-/// Perform Coinselection via Lowest Larger algorithm.
-/// Return NoSolutionFound, if no solution exists.
+/// Performs coin selection using the Lowest Larger algorithm.
+///
+/// Returns `NoSolutionFound` if no solution exists.
 pub fn select_coin_lowestlarger(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
@@ -294,8 +297,9 @@ pub fn select_coin_lowestlarger(
     }
 }
 
-/// Perform Coinselection via First-In-First-Out algorithm.
-/// Return NoSolutionFound, if no solution exists.
+/// Performs coin selection using the First-In-First-Out (FIFO) algorithm.
+///
+/// Returns `NoSolutionFound` if no solution is found.
 pub fn select_coin_fifo(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
@@ -346,8 +350,9 @@ pub fn select_coin_fifo(
     }
 }
 
-/// Perform Coinselection via Single Random Draw.
-/// Return NoSolutionFound, if no solution exists.
+/// Performs coin selection using a single random draw.
+///
+/// Returns `NoSolutionFound` if no solution is found.
 pub fn select_coin_srd(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
@@ -413,7 +418,8 @@ pub fn select_coin_srd(
     })
 }
 
-/// The Global Coinselection API that performs all the algorithms and proudeces result with least [WasteMetric].
+/// The global coin selection API that applies all algorithms and produces the result with the lowest [WasteMetric].
+///
 /// At least one selection solution should be found.
 type CoinSelectionFn =
     fn(&[OutputGroup], CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
@@ -513,7 +519,7 @@ fn calculate_fee(weight: u32, rate: f32) -> u64 {
     (weight as f32 * rate).ceil() as u64
 }
 
-/// Returns the effective value which is the actual value minus the estimated fee of the OutputGroup
+/// Returns the effective value of the `OutputGroup`, which is the actual value minus the estimated fee.
 #[inline]
 fn effective_value(output: &OutputGroup, feerate: f32) -> u64 {
     output
@@ -1151,9 +1157,12 @@ mod test {
             vec![100, 10, 50, 52, 13],
             0.34,
         );
-        /*Trying to make 160,000,000 SATS from the wallet.
-        Checking if the algorithm can pick a random sample of inputs (from a set of 105) to make 160,000,000 SATS.
-        When choosing 1 from 100 identical inputs (1 COIN), there is a 1% chance of selcting the same input twice. Hence we limit our randomeness check to the condition that, out of 5 trials, if the algorithm picks the same set of inputs 5 times, then we conclude that the algorithm isn't random enough */
+        /* Testing if the algorithm can randomly select inputs to make 160,000,000 SATS.
+
+        The test checks if the algorithm can pick a random sample of inputs (from a set of 105) to make 160,000,000 SATS.
+        When choosing 1 from 100 identical inputs (1 COIN), there is a 1% chance of selecting the same input twice.
+        To evaluate randomness, we limit our check to 5 trials: if the algorithm picks the same set of inputs 5 times,
+        we conclude that the algorithm isn't random enough. */
         let mut options = knapsack_setup_options(((60.0 * CENT) + COIN).round() as u64, 0.34);
         let mut fails = 0;
         for k in 0..RUN_TESTS {
