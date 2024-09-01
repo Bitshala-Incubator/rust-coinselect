@@ -1144,10 +1144,10 @@ mod test {
         let mut selected_input_2: Vec<usize> = Vec::new();
         for j in 0..RUN_TESTS {
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                selected_input_1 = result.selected_inputs.clone();
+                selected_input_1.clone_from(&result.selected_inputs);
             }
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                selected_input_2 = result.selected_inputs.clone();
+                selected_input_2.clone_from(&result.selected_inputs);
             }
             // Checking if the selected inputs, in two consequtive calls of the knapsack function are not the same
             assert_ne!(selected_input_1, selected_input_2);
@@ -1175,10 +1175,10 @@ mod test {
         for k in 0..RUN_TESTS {
             for l in 0..RANDOM_REPEATS {
                 if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                    selected_input_1 = result.selected_inputs.clone();
+                    selected_input_1.clone_from(&result.selected_inputs);
                 }
                 if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                    selected_input_2 = result.selected_inputs.clone();
+                    selected_input_2.clone_from(&result.selected_inputs);
                 }
                 if selected_input_1 == selected_input_2 {
                     fails += 1;
