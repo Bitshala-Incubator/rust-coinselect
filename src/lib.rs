@@ -112,7 +112,6 @@ pub struct MatchParameters {
 pub fn select_coin_bnb(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
-    // rng: &mut ThreadRng,
 ) -> Result<SelectionOutput, SelectionError> {
     let mut selected_inputs: Vec<usize> = vec![];
 
@@ -957,8 +956,7 @@ mod test {
         let opt = bnb_setup_options(5730);
         let ans = select_coin_bnb(
             &values, 
-            opt, 
-            // &mut rand::thread_rng(),
+            opt,
         );
         if let Ok(selection_output) = ans {
             let expected_solution = vec![7, 5, 1];
@@ -979,8 +977,7 @@ mod test {
         let options = bnb_setup_options(impossible_target);
         let result = select_coin_bnb(
             &inputs, 
-            options, 
-            // &mut rand::thread_rng()
+            options,
         );
         assert!(
             matches!(result, Err(SelectionError::NoSolutionFound)),
