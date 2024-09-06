@@ -310,10 +310,19 @@ pub fn select_coin_fifo(
     let mut estimated_fees: u64 = 0;
 
     // Sorting the inputs vector based on creation_sequence
+    let mut sorted_inputs: Vec<_> = inputs
+        .iter()
+        .enumerate()
+        .filter(|(_, og)| og.creation_sequence.is_some())
+        .collect();
 
-    let mut sorted_inputs: Vec<_> = inputs.iter().enumerate().collect();
+    let mut inputs_without_sequence: Vec<_> = inputs
+        .iter()
+        .enumerate()
+        .filter(|(_, og)| og.creation_sequence.is_none())
+        .collect();
 
-    sorted_inputs.sort_by_key(|(_, a)| a.creation_sequence);
+    sorted_inputs.extend(inputs_without_sequence);
 
     for (index, inputs) in sorted_inputs {
         estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
@@ -584,6 +593,13 @@ mod test {
                 input_count: 1,
                 is_segwit: false,
                 creation_sequence: Some(1001),
+            },
+            OutputGroup {
+                value: 1500,
+                weight: 150,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
             },
         ]
     }
@@ -1134,10 +1150,10 @@ mod test {
         let mut selected_input_2: Vec<usize> = Vec::new();
         for j in 0..RUN_TESTS {
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                selected_input_1 = result.selected_inputs.clone();
+                selected_input_1.clone_from(&result.selected_inputs);
             }
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                selected_input_2 = result.selected_inputs.clone();
+                selected_input_2.clone_from(&result.selected_inputs);
             }
             // Checking if the selected inputs, in two consequtive calls of the knapsack function are not the same
             assert_ne!(selected_input_1, selected_input_2);
@@ -1168,10 +1184,10 @@ mod test {
         for k in 0..RUN_TESTS {
             for l in 0..RANDOM_REPEATS {
                 if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                    selected_input_1 = result.selected_inputs.clone();
+                    selected_input_1.clone_from(&result.selected_inputs);
                 }
                 if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                    selected_input_2 = result.selected_inputs.clone();
+                    selected_input_2.clone_from(&result.selected_inputs);
                 }
                 if selected_input_1 == selected_input_2 {
                     fails += 1;
