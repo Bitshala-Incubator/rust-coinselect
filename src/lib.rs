@@ -9,10 +9,6 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-/// Represents an input candidate for Coinselection, either as a single UTXO or a group of UTXOs.
-///
-/// A [`OutputGroup`] can be a single UTXO or a group that should be spent together.
-/// The library user must craft this structure correctly, as incorrect representation can lead to incorrect selection results.
 #[derive(Debug, Clone, Copy)]
 pub struct OutputGroup {
     /// Total value of the UTXO(s) that this [`WeightedValue`] represents.
