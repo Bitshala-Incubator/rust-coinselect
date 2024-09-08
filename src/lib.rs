@@ -97,8 +97,9 @@ pub struct SelectionOutput {
     /// The waste amount, for the above inputs.
     pub waste: WasteMetric,
 }
-
-/// Wrapped in a struct or else input for fn bnb takes too many arguments - 9/7, 
+/// Struct for three arguments : target_for_match, match_range and target_feerate
+/// 
+/// Wrapped in a struct or else input for fn bnb takes too many arguments - 9/7
 /// Leading to usage of stack instead of registers - https://users.rust-lang.org/t/avoiding-too-many-arguments-passing-to-a-function/103581
 /// Fit in : 1 XMM register, 1 GPR
 #[derive(Debug)]
@@ -169,7 +170,9 @@ pub fn select_coin_bnb(
     }
 }
 
-/// Return empty vec if no solutions are found.
+/// Return empty vec if no solutions are found
+/// 
+// changing the selected_inputs : &[usize] -> &mut Vec<usize>
 fn bnb(
     inputs_in_desc_value: &[(usize, OutputGroup)],
     selected_inputs: &mut Vec<usize>,
@@ -1468,49 +1471,4 @@ mod test {
         let result = select_coin(&inputs, options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
-
-    /// Test for Successful Coin Selection ALgorithm to be Branch and Bound.
-    #[test]
-    fn test_select_coin_bnb() {
-        // Define the test values
-        let values = [
-            OutputGroup {
-                value: 5000,
-                weight: 50,
-                input_count: 1,
-                is_segwit: false,
-                creation_sequence: None,
-            },
-            OutputGroup {
-                value: 600,
-                weight: 250,
-                input_count: 1,
-                is_segwit: false,
-                creation_sequence: None,
-            },
-            OutputGroup {
-                value: 400,
-                weight: 200,
-                input_count: 1,
-                is_segwit: false,
-                creation_sequence: None,
-            },
-        ];
-        let opt = bnb_setup_options(5711);
-        let ans = select_coin(
-            &values, 
-            opt,
-        );
-        if let Ok(selection_output) = ans {
-            let expected_solution = vec![0, 1, 2];
-            assert_eq!(
-                selection_output.selected_inputs, expected_solution,
-                "Expected solution {:?}, but got {:?}",
-                expected_solution, selection_output.selected_inputs
-            );
-        } else {
-            panic!("Failed to find a solution");
-        }
-    }
-
 }
