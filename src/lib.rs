@@ -191,7 +191,7 @@ fn bnb(
 
     // Decrement of bnb_tries for every iteration
     *bnb_tries -= 1;
-    /// Capping the number of iterations on the computation
+    // Capping the number of iterations on the computation
     if *bnb_tries == 0 || depth >= inputs_in_desc_value.len() {
         return None;
     }
