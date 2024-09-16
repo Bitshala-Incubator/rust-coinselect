@@ -316,6 +316,8 @@ pub fn select_coin_fifo(
         .filter(|(_, og)| og.creation_sequence.is_some())
         .collect();
 
+    sorted_inputs.sort_by(|a, b| a.1.creation_sequence.cmp(&b.1.creation_sequence));
+
     let mut inputs_without_sequence: Vec<_> = inputs
         .iter()
         .enumerate()
@@ -1211,6 +1213,72 @@ mod test {
     fn test_fifo() {
         test_successful_selection();
         test_insufficient_funds();
+    }
+
+    #[test]
+    fn test_fifo_with_none_and_sequence() {
+        let inputs = vec![
+            OutputGroup {
+                value: 1000,
+                weight: 100,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: Some(1),
+            },
+            OutputGroup {
+                value: 2000,
+                weight: 200,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None, // No sequence
+            },
+            OutputGroup {
+                value: 3000,
+                weight: 300,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: Some(0), // Oldest UTXO
+            },
+            OutputGroup {
+                value: 1500,
+                weight: 150,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None, // No sequence
+            },
+            OutputGroup {
+                value: 2500,
+                weight: 250,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: Some(5), // Newer UTXO
+            },
+        ];
+
+        let options = CoinSelectionOpt {
+            target_value: 4500,
+            target_feerate: 0.1,
+            long_term_feerate: None,
+            min_absolute_fee: 10,
+            base_weight: 100,
+            drain_weight: 50,
+            drain_cost: 0,
+            cost_per_input: 10,
+            cost_per_output: 5,
+            min_drain_value: 0,
+            excess_strategy: ExcessStrategy::ToFee,
+        };
+
+        let result = select_coin_fifo(&inputs, options);
+
+        assert!(result.is_ok());
+
+        let selection_output = result.unwrap();
+        // It should prioritize the ones with sequences: (3000, 1000, 2500) and then fall back on inputs without sequences
+        assert_eq!(selection_output.selected_inputs.len(), 3); // Should select 3 inputs
+        assert_eq!(selection_output.selected_inputs, vec![2, 0, 4]); // These are inputs with sequences
+
+        assert!(selection_output.waste.0 < 10000); // Check waste does not exceed an arbitrary limit.
     }
 
     #[test]
