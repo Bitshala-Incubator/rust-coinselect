@@ -2,8 +2,8 @@
 
 //! A blockchain-agnostic Rust Coinselection library
 
-
-use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
+use rand::rngs::ThreadRng;
+use rand::{seq::SliceRandom, thread_rng, Rng};
 use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
@@ -98,7 +98,7 @@ pub struct SelectionOutput {
     pub waste: WasteMetric,
 }
 /// Struct for three arguments : target_for_match, match_range and target_feerate
-/// 
+///
 /// Wrapped in a struct or else input for fn bnb takes too many arguments - 9/7
 /// Leading to usage of stack instead of registers - https://users.rust-lang.org/t/avoiding-too-many-arguments-passing-to-a-function/103581
 /// Fit in : 1 XMM register, 1 GPR
@@ -122,7 +122,9 @@ pub fn select_coin_bnb(
     let rng = &mut thread_rng();
 
     let match_parameters = MatchParameters {
-        target_for_match: options.target_value + calculate_fee(options.base_weight, options.target_feerate) + options.cost_per_output,
+        target_for_match: options.target_value
+            + calculate_fee(options.base_weight, options.target_feerate)
+            + options.cost_per_output,
         match_range: options.cost_per_input + options.cost_per_output,
         target_feerate: options.target_feerate,
     };
@@ -171,7 +173,7 @@ pub fn select_coin_bnb(
 }
 
 /// Return empty vec if no solutions are found
-/// 
+///
 // changing the selected_inputs : &[usize] -> &mut Vec<usize>
 fn bnb(
     inputs_in_desc_value: &[(usize, OutputGroup)],
@@ -180,7 +182,7 @@ fn bnb(
     depth: usize,
     bnb_tries: &mut u32,
     rng: &mut ThreadRng,
-    match_parameters: &MatchParameters, 
+    match_parameters: &MatchParameters,
 ) -> Option<Vec<usize>> {
     if acc_eff_value > match_parameters.target_for_match + match_parameters.match_range {
         return None;
@@ -198,8 +200,11 @@ fn bnb(
     if rng.gen_bool(0.5) {
         // exploring the inclusion branch
         // first include then omit
-        let new_effective_value =
-            acc_eff_value + effective_value(&inputs_in_desc_value[depth].1, match_parameters.target_feerate);
+        let new_effective_value = acc_eff_value
+            + effective_value(
+                &inputs_in_desc_value[depth].1,
+                match_parameters.target_feerate,
+            );
         selected_inputs.push(inputs_in_desc_value[depth].0);
         let with_this = bnb(
             inputs_in_desc_value,
@@ -239,7 +244,10 @@ fn bnb(
             Some(without_this) => Some(without_this),
             None => {
                 let new_effective_value = acc_eff_value
-                    + effective_value(&inputs_in_desc_value[depth].1, match_parameters.target_feerate);
+                    + effective_value(
+                        &inputs_in_desc_value[depth].1,
+                        match_parameters.target_feerate,
+                    );
                 selected_inputs.push(inputs_in_desc_value[depth].0);
                 let with_this = bnb(
                     inputs_in_desc_value,
@@ -877,7 +885,7 @@ mod test {
             })
         }
     }
-    
+
     fn bnb_setup_options(target_value: u64) -> CoinSelectionOpt {
         CoinSelectionOpt {
             target_value,
@@ -957,10 +965,7 @@ mod test {
 
         // Adjust the target value to ensure it tests for multiple valid solutions
         let opt = bnb_setup_options(5730);
-        let ans = select_coin_bnb(
-            &values, 
-            opt,
-        );
+        let ans = select_coin_bnb(&values, opt);
         if let Ok(selection_output) = ans {
             let expected_solution = vec![7, 5, 1];
             assert_eq!(
@@ -978,10 +983,7 @@ mod test {
         let total_input_value: u64 = inputs.iter().map(|input| input.value).sum();
         let impossible_target = total_input_value + 1000;
         let options = bnb_setup_options(impossible_target);
-        let result = select_coin_bnb(
-            &inputs, 
-            options,
-        );
+        let result = select_coin_bnb(&inputs, options);
         assert!(
             matches!(result, Err(SelectionError::NoSolutionFound)),
             "Expected NoSolutionFound error, got {:?}",
