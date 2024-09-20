@@ -232,7 +232,6 @@ fn bnb(
             }
         }
     } else {
-        /// Avoided creation of intermediate variable, for marginally better performance.
         match bnb(
             inputs_in_desc_value,
             selected_inputs,
@@ -263,7 +262,7 @@ fn bnb(
                     Some(_) => with_this,
                     None => {
                         selected_inputs.pop(); // poping out the selected utxo if it does not fit
-                        None // this may or may not be correct
+                        None
                     }
                 }
             }
