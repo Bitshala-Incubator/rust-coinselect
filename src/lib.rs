@@ -47,11 +47,11 @@ pub struct CoinSelectionOpt {
 
     /// The weight of the template transaction, including fixed fields and outputs.
     pub base_weight: u32,
-    /// Additional weight if we include the drain (change) output.
-    pub drain_weight: u32,
+    /// Additional weight if we include the change output.
+    pub change_weight: u32,
 
-    /// Weight of spending the drain (change) output in the future.
-    pub drain_cost: u64,
+    /// Weight of spending the change output in the future.
+    pub change_cost: u64,
 
     /// Estimate of cost of spending an input.
     pub cost_per_input: u64,
@@ -59,8 +59,8 @@ pub struct CoinSelectionOpt {
     /// Estimate of cost of spending the output.
     pub cost_per_output: u64,
 
-    /// Minimum value allowed for a drain (change) output.
-    pub min_drain_value: u64,
+    /// Minimum value allowed for a change output.
+    pub min_change_value: u64,
 
     /// Strategy to use the excess value other than fee and target
     pub excess_strategy: ExcessStrategy,
@@ -279,7 +279,7 @@ pub fn select_coin_knapsack(
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     let mut adjusted_target = options.target_value
-        + options.min_drain_value
+        + options.min_change_value
         + calculate_fee(options.base_weight, options.target_feerate);
     let mut smaller_coins = inputs
         .iter()
@@ -397,7 +397,7 @@ pub fn select_coin_lowestlarger(
     let mut accumulated_weight: u32 = 0;
     let mut selected_inputs: Vec<usize> = Vec::new();
     let mut estimated_fees: u64 = 0;
-    let target = options.target_value + options.min_drain_value;
+    let target = options.target_value + options.min_change_value;
 
     let mut sorted_inputs: Vec<_> = inputs.iter().enumerate().collect();
     sorted_inputs.sort_by_key(|(_, input)| effective_value(input, options.target_feerate));
@@ -482,7 +482,7 @@ pub fn select_coin_fifo(
         if accumulated_value
             >= (options.target_value
                 + estimated_fees.max(options.min_absolute_fee)
-                + options.min_drain_value)
+                + options.min_change_value)
         {
             break;
         }
@@ -493,7 +493,7 @@ pub fn select_coin_fifo(
     if accumulated_value
         < (options.target_value
             + estimated_fees.max(options.min_absolute_fee)
-            + options.min_drain_value)
+            + options.min_change_value)
     {
         Err(SelectionError::InsufficientFunds)
     } else {
@@ -537,7 +537,7 @@ pub fn select_coin_srd(
     let mut input_counts = 0;
 
     let necessary_target = options.target_value
-        + options.min_drain_value
+        + options.min_change_value
         + calculate_fee(options.base_weight, options.target_feerate);
 
     for (index, input) in randomized_inputs {
@@ -550,7 +550,7 @@ pub fn select_coin_srd(
 
         if accumulated_value
             >= options.target_value
-                + options.min_drain_value
+                + options.min_change_value
                 + estimated_fee.max(options.min_absolute_fee)
         {
             break;
@@ -559,7 +559,7 @@ pub fn select_coin_srd(
 
     if accumulated_value
         < options.target_value
-            + options.min_drain_value
+            + options.min_change_value
             + estimated_fee.max(options.min_absolute_fee)
     {
         return Err(SelectionError::InsufficientFunds);
@@ -672,7 +672,7 @@ fn calculate_waste(
         waste += (accumulated_value - (options.target_value + estimated_fee));
     } else {
         // Change is created if excess strategy is set to ToDrain. Hence 'excess' should be set to 0
-        waste += options.drain_cost;
+        waste += options.change_cost;
     }
     waste
 }
@@ -852,30 +852,30 @@ mod test {
             long_term_feerate: Some(0.4),
             min_absolute_fee: 0,
             base_weight: 10,
-            drain_weight: 50,
-            drain_cost: 10,
+            change_weight: 50,
+            change_cost: 10,
             cost_per_input: 20,
             cost_per_output: 10,
-            min_drain_value: 500,
+            min_change_value: 500,
             excess_strategy: ExcessStrategy::ToDrain,
         }
     }
     fn knapsack_setup_options(adjusted_target: u64, target_feerate: f32) -> CoinSelectionOpt {
-        let min_drain_value = 500;
+        let min_change_value = 500;
         let base_weight = 10;
         let target_value =
-            adjusted_target - min_drain_value - calculate_fee(base_weight, target_feerate);
+            adjusted_target - min_change_value - calculate_fee(base_weight, target_feerate);
         CoinSelectionOpt {
             target_value,
             target_feerate, // Simplified feerate
             long_term_feerate: Some(0.4),
             min_absolute_fee: 0,
             base_weight,
-            drain_weight: 50,
-            drain_cost: 10,
+            change_weight: 50,
+            change_cost: 10,
             cost_per_input: 20,
             cost_per_output: 10,
-            min_drain_value,
+            min_change_value,
             excess_strategy: ExcessStrategy::ToDrain,
         }
     }
@@ -927,11 +927,11 @@ mod test {
             long_term_feerate: None,
             min_absolute_fee: 0,
             base_weight: 10,
-            drain_weight: 50,
-            drain_cost: 10,
+            change_weight: 50,
+            change_cost: 10,
             cost_per_input: 20,
             cost_per_output: 10,
-            min_drain_value: 500,
+            min_change_value: 500,
             excess_strategy: ExcessStrategy::ToDrain,
         }
     }
@@ -1328,11 +1328,11 @@ mod test {
                 long_term_feerate: Some(0.4),
                 min_absolute_fee: 0,
                 base_weight: 10,
-                drain_weight: 50,
-                drain_cost: 10,
+                change_weight: 50,
+                change_cost: 10,
                 cost_per_input: 20,
                 cost_per_output: 10,
-                min_drain_value: (0.05 * CENT).round() as u64, // Setting minimum drain value = 0.05 CENT. This will make the algorithm to avoid creating small change.
+                min_change_value: (0.05 * CENT).round() as u64, // Setting minimum change value = 0.05 CENT. This will make the algorithm to avoid creating small change.
                 excess_strategy: ExcessStrategy::ToDrain,
             };
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
@@ -1520,11 +1520,11 @@ mod test {
             long_term_feerate: None,
             min_absolute_fee: 10,
             base_weight: 100,
-            drain_weight: 50,
-            drain_cost: 0,
+            change_weight: 50,
+            change_cost: 0,
             cost_per_input: 10,
             cost_per_output: 5,
-            min_drain_value: 0,
+            min_change_value: 0,
             excess_strategy: ExcessStrategy::ToFee,
         };
 
