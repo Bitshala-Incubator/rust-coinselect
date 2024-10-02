@@ -3,8 +3,9 @@ use crate::{
     utils::{calculate_fee, calculate_waste},
 };
 
-/// Perform Coinselection via First-In-First-Out algorithm.
-/// Return NoSolutionFound, if no solution exists.
+/// Performs coin selection using the First-In-First-Out (FIFO) algorithm.
+///
+/// Returns `NoSolutionFound` if no solution is found.
 pub fn select_coin_fifo(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
@@ -15,10 +16,21 @@ pub fn select_coin_fifo(
     let mut estimated_fees: u64 = 0;
 
     // Sorting the inputs vector based on creation_sequence
+    let mut sorted_inputs: Vec<_> = inputs
+        .iter()
+        .enumerate()
+        .filter(|(_, og)| og.creation_sequence.is_some())
+        .collect();
 
-    let mut sorted_inputs: Vec<_> = inputs.iter().enumerate().collect();
+    sorted_inputs.sort_by(|a, b| a.1.creation_sequence.cmp(&b.1.creation_sequence));
 
-    sorted_inputs.sort_by_key(|(_, a)| a.creation_sequence);
+    let inputs_without_sequence: Vec<_> = inputs
+        .iter()
+        .enumerate()
+        .filter(|(_, og)| og.creation_sequence.is_none())
+        .collect();
+
+    sorted_inputs.extend(inputs_without_sequence);
 
     for (index, inputs) in sorted_inputs {
         estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);

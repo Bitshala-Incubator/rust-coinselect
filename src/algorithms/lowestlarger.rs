@@ -1,8 +1,9 @@
 use crate::types::{CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutput, WasteMetric};
 use crate::utils::{calculate_fee, calculate_waste, effective_value};
 
-/// Perform Coinselection via Lowest Larger algorithm.
-/// Return NoSolutionFound, if no solution exists.
+/// Performs coin selection using the Lowest Larger algorithm.
+///
+/// Returns `NoSolutionFound` if no solution exists.
 pub fn select_coin_lowestlarger(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
@@ -16,7 +17,7 @@ pub fn select_coin_lowestlarger(
     let mut sorted_inputs: Vec<_> = inputs.iter().enumerate().collect();
     sorted_inputs.sort_by_key(|(_, input)| effective_value(input, options.target_feerate));
 
-    let mut index = sorted_inputs.partition_point(|(_, input)| {
+    let index = sorted_inputs.partition_point(|(_, input)| {
         input.value <= (target + calculate_fee(input.weight, options.target_feerate))
     });
 

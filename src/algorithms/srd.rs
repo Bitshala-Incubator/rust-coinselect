@@ -2,15 +2,13 @@ use crate::types::{CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutpu
 use crate::utils::{calculate_fee, calculate_waste};
 use rand::{seq::SliceRandom, thread_rng};
 
-/// Perform Coinselection via Single Random Draw.
-/// Return NoSolutionFound, if no solution exists.
+/// Performs coin selection using a single random draw.
+///
+/// Returns `NoSolutionFound` if no solution is found.
 pub fn select_coin_srd(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    // Randomize the inputs order to simulate the random draw
-    let mut rng = thread_rng();
-
     // In out put we need to specify the indexes of the inputs in the given order
     // So keep track of the indexes when randomiz ing the vec
     let mut randomized_inputs: Vec<_> = inputs.iter().enumerate().collect();
@@ -25,7 +23,7 @@ pub fn select_coin_srd(
     let mut estimated_fee = 0;
     let mut input_counts = 0;
 
-    let necessary_target = options.target_value
+    let _ = options.target_value
         + options.min_drain_value
         + calculate_fee(options.base_weight, options.target_feerate);
 

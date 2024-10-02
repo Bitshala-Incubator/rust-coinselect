@@ -69,12 +69,12 @@ pub enum SelectionError {
     NoSolutionFound,
 }
 
-/// Wastemetric, of a selection of inputs, is measured in satoshis. It helps evaluate the selection made by different algorithms in the context of the current and long term fee rate.
-/// It is used to strike a balance between wanting to minimize the current transaction's fees versus minimizing the overall fees paid by the wallet during its lifetime.
-/// During high fee rate environment, selecting fewer number of inputs will help minimize the transaction fees.
-/// During low fee rate environment, slecting more number of inputs will help minimize the over all fees paid by the wallet during its lifetime.
-/// This is used to compare various selection algorithm and find the most
-/// optimizewd solution, represented by least [WasteMetric] value.
+/// Measures the efficiency of input selection in satoshis, helping evaluate algorithms based on current and long-term fee rates.
+///
+/// WasteMetric strikes a balance between minimizing current transaction fees and overall fees during the wallet's lifetime.
+/// In high fee rate environments, selecting fewer inputs reduces transaction fees.
+/// In low fee rate environments, selecting more inputs reduces overall fees.
+/// It compares various selection algorithms to find the most optimized solution, represented by the lowest [WasteMetric] value.
 #[derive(Debug)]
 pub struct WasteMetric(pub u64);
 
@@ -91,13 +91,26 @@ pub struct SelectionOutput {
 pub type EffectiveValue = u64;
 pub type Weight = u32;
 
-/// The Global Coinselection API that performs all the algorithms and proudeces result with least [WasteMetric].
+/// The global coin selection API that applies all algorithms and produces the result with the lowest [WasteMetric].
+///
 /// At least one selection solution should be found.
 pub type CoinSelectionFn =
     fn(&[OutputGroup], CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
 
 #[derive(Debug)]
 pub struct SharedState {
-    pub result: Result<SelectionOutput, SelectionError>,
-    pub any_success: bool,
+    pub(crate) result: Result<SelectionOutput, SelectionError>,
+    pub(crate) any_success: bool,
+}
+
+/// Struct for three arguments : target_for_match, match_range and target_feerate
+///
+/// Wrapped in a struct or else input for fn bnb takes too many arguments - 9/7
+/// Leading to usage of stack instead of registers - https://users.rust-lang.org/t/avoiding-too-many-arguments-passing-to-a-function/103581
+/// Fit in : 1 XMM register, 1 GPR
+#[derive(Debug)]
+pub struct MatchParameters {
+    pub(crate) target_for_match: u64,
+    pub(crate) match_range: u64,
+    pub(crate) target_feerate: f32,
 }

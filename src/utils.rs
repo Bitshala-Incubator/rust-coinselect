@@ -30,9 +30,10 @@ pub fn calculate_waste(
     waste
 }
 
-/// adjusted_target should be target value plus estimated fee
-/// smaller_coins is a slice of pair where the usize refers to the index of the OutputGroup in the inputs given
-/// smaller_coins should be sorted in descending order based on the value of the OutputGroup, and every OutputGroup value should be less than adjusted_target
+/// `adjusted_target` is the target value plus the estimated fee.
+///
+/// `smaller_coins` is a slice of pairs where the `usize` refers to the index of the `OutputGroup` in the provided inputs.
+/// This slice should be sorted in descending order by the value of each `OutputGroup`, with each value being less than `adjusted_target`.
 pub fn calculate_accumulated_weight(
     smaller_coins: &[(usize, EffectiveValue, Weight)],
     selected_inputs: &HashSet<usize>,

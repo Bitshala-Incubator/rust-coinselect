@@ -11,13 +11,13 @@ pub fn select_coin_knapsack(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    let mut adjusted_target = options.target_value
+    let adjusted_target = options.target_value
         + options.min_drain_value
         + calculate_fee(options.base_weight, options.target_feerate);
     let mut smaller_coins = inputs
         .iter()
         .enumerate()
-        .filter(|&(index, output_group)| output_group.value < adjusted_target)
+        .filter(|&(_, output_group)| output_group.value < adjusted_target)
         .map(|(index, output_group)| {
             (
                 index,
@@ -42,9 +42,9 @@ fn knap_sack(
     let mut best_set: HashSet<usize> = HashSet::new();
     let mut best_set_value: u64 = u64::MAX;
     let mut rng = thread_rng();
-    for i in 1..=1000 {
+    for _ in 1..=1000 {
         for pass in 1..=2 {
-            for &(index, value, weight) in smaller_coins {
+            for &(index, value, _) in smaller_coins {
                 let toss_result: bool = rng.gen_bool(0.5);
                 if (pass == 2 && !selected_inputs.contains(&index)) || (pass == 1 && toss_result) {
                     selected_inputs.insert(index);
@@ -179,7 +179,7 @@ mod test {
 
     fn test_core_knapsack_vectors() {
         let mut inputs_verify: Vec<usize> = Vec::new();
-        for i in 0..RUN_TESTS {
+        for _ in 0..RUN_TESTS {
             // Test if Knapsack retruns an Error
             let mut inputs: Vec<OutputGroup> = Vec::new();
             let mut options = knapsack_setup_options(1000, 0.33);
@@ -487,24 +487,24 @@ mod test {
             // Declare value and weights vectors
             let mut input_value: Vec<u64> = Vec::new();
             let mut input_weight: Vec<u32> = Vec::new();
-            for i in (0..676) {
+            for _ in 0..676 {
                 // Populate the vectors with the same value 'amt' and weight = 23 for 676 times
                 // Using 676 as (old MAX_STANDARD_TX_SIZE = 100000)/(148 bytes per input) = 676
                 input_value.push(amt);
                 input_weight.push(23);
             }
-            let mut inputs = knapsack_setup_output_groups(input_value, input_weight, 0.34);
+            let inputs = knapsack_setup_output_groups(input_value, input_weight, 0.34);
             // Setting the selection target to 2000 sats
-            let mut options = knapsack_setup_options(2000, 0.34);
+            let options = knapsack_setup_options(2000, 0.34);
             // performing the assertion operation 10 times
-            for j in 0..RUN_TESTS_SLIM {
+            for _ in 0..RUN_TESTS_SLIM {
                 if let Ok(result) = select_coin_knapsack(&inputs, options) {
                     if let Some(amt_in_inputs) = inputs.first() {
                         // Checking if the (input's value) - 2000 is less than CENT
                         // If so, more than one input is required to meet the selection target of 2000 sats
                         if amt_in_inputs.value.checked_sub(2000) < Some(CENT as u64) {
                             // calculating the no.of inputs that will be required to meet the selection target of 2000 sats
-                            let mut return_size = ((2000.0) / amt as f64).ceil();
+                            let return_size = ((2000.0) / amt as f64).ceil();
                             assert_eq!(result.selected_inputs.len(), return_size as usize);
                         } else {
                             // If (input's value) - 2000 is greater than CENT, then only one input is required to meet the selection target of 2000 sats
@@ -522,7 +522,7 @@ mod test {
         // Declare input value and weights vectors
         let mut input_value: Vec<u64> = Vec::new();
         let mut input_weight: Vec<u32> = Vec::new();
-        for i in 0..=100 {
+        for _ in 0..=100 {
             // Populate the vectors with the same value, COIN = 100000000 sats, and weight = 23 for 100 times (to create 100 identical inputs)
             input_value.push(COIN as u64);
             input_weight.push(23);
@@ -530,10 +530,10 @@ mod test {
         // Setting up inputs
         let mut inputs = knapsack_setup_output_groups(input_value, input_weight, 0.34);
         // Setting the selection target to 50*COIN sats
-        let mut options = knapsack_setup_options((50.0 * COIN).round() as u64, 0.34);
+        let options = knapsack_setup_options((50.0 * COIN).round() as u64, 0.34);
         let mut selected_input_1: Vec<usize> = Vec::new();
         let mut selected_input_2: Vec<usize> = Vec::new();
-        for j in 0..RUN_TESTS {
+        for _ in 0..RUN_TESTS {
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
                 selected_input_1 = result.selected_inputs.clone();
             }
@@ -561,10 +561,10 @@ mod test {
         /*Trying to make 160,000,000 SATS from the wallet.
         Checking if the algorithm can pick a random sample of inputs (from a set of 105) to make 160,000,000 SATS.
         When choosing 1 from 100 identical inputs (1 COIN), there is a 1% chance of selcting the same input twice. Hence we limit our randomeness check to the condition that, out of 5 trials, if the algorithm picks the same set of inputs 5 times, then we conclude that the algorithm isn't random enough */
-        let mut options = knapsack_setup_options(((60.0 * CENT) + COIN).round() as u64, 0.34);
+        let options = knapsack_setup_options(((60.0 * CENT) + COIN).round() as u64, 0.34);
         let mut fails = 0;
-        for k in 0..RUN_TESTS {
-            for l in 0..RANDOM_REPEATS {
+        for _ in 0..RUN_TESTS {
+            for _ in 0..RANDOM_REPEATS {
                 if let Ok(result) = select_coin_knapsack(&inputs, options) {
                     selected_input_1 = result.selected_inputs.clone();
                 }

@@ -1,3 +1,4 @@
+use crate::algorithms::bnb::select_coin_bnb;
 use crate::algorithms::{
     fifo::select_coin_fifo, knapsack::select_coin_knapsack, lowestlarger::select_coin_lowestlarger,
     srd::select_coin_srd,
@@ -13,10 +14,11 @@ pub fn select_coin(
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     let algorithms: Vec<CoinSelectionFn> = vec![
+        select_coin_bnb,
         select_coin_fifo,
         select_coin_lowestlarger,
         select_coin_srd,
-        select_coin_knapsack,
+        select_coin_knapsack, // Future algorithms can be added here
     ];
     // Shared result for all threads
     let best_result = Arc::new(Mutex::new(SharedState {
@@ -126,7 +128,7 @@ mod test {
     #[test]
     fn test_select_coin_insufficient_funds() {
         let inputs = setup_basic_output_groups();
-        let options = setup_options(7000);
+        let options = setup_options(7000); // Set a target value higher than the sum of all inputs
         let result = select_coin(&inputs, options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
