@@ -1,5 +1,5 @@
-/// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a
-/// single UTXO, or a group of UTXOs that should be spent together.
+/// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a single UTXO, or a group of UTXOs that should be spent together.
+///
 /// The library user is responsible for crafting this structure correctly. Incorrect representation of this
 /// structure will cause incorrect selection result.
 #[derive(Debug, Clone, Copy)]

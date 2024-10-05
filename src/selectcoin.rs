@@ -1,13 +1,17 @@
-use crate::algorithms::bnb::select_coin_bnb;
-use crate::algorithms::{
-    fifo::select_coin_fifo, knapsack::select_coin_knapsack, lowestlarger::select_coin_lowestlarger,
-    srd::select_coin_srd,
+use crate::{
+    algorithms::{
+        bnb::select_coin_bnb, fifo::select_coin_fifo, knapsack::select_coin_knapsack,
+        lowestlarger::select_coin_lowestlarger, srd::select_coin_srd,
+    },
+    types::{
+        CoinSelectionFn, CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutput,
+        SharedState,
+    },
 };
-use crate::types::{
-    CoinSelectionFn, CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutput, SharedState,
+use std::{
+    sync::{Arc, Mutex},
+    thread,
 };
-use std::sync::{Arc, Mutex};
-use std::thread;
 
 pub fn select_coin(
     inputs: &[OutputGroup],

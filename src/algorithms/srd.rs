@@ -1,5 +1,7 @@
-use crate::types::{CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutput, WasteMetric};
-use crate::utils::{calculate_fee, calculate_waste};
+use crate::{
+    types::{CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutput, WasteMetric},
+    utils::{calculate_fee, calculate_waste},
+};
 use rand::{seq::SliceRandom, thread_rng};
 
 /// Performs coin selection using a single random draw.

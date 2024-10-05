@@ -1,5 +1,7 @@
-use crate::types::{CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutput, WasteMetric};
-use crate::utils::{calculate_fee, calculate_waste, effective_value};
+use crate::{
+    types::{CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutput, WasteMetric},
+    utils::{calculate_fee, calculate_waste, effective_value},
+};
 
 /// Performs coin selection using the Lowest Larger algorithm.
 ///

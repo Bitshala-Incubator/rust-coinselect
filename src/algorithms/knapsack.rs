@@ -1,11 +1,12 @@
-use crate::types::{
-    CoinSelectionOpt, EffectiveValue, OutputGroup, SelectionError, SelectionOutput, WasteMetric,
-    Weight,
+use crate::{
+    types::{
+        CoinSelectionOpt, EffectiveValue, OutputGroup, SelectionError, SelectionOutput,
+        WasteMetric, Weight,
+    },
+    utils::{calculate_accumulated_weight, calculate_fee, calculate_waste, effective_value},
 };
-use crate::utils::{calculate_accumulated_weight, calculate_fee, calculate_waste, effective_value};
 use rand::{thread_rng, Rng};
-use std::cmp::Reverse;
-use std::collections::HashSet;
+use std::{cmp::Reverse, collections::HashSet};
 
 pub fn select_coin_knapsack(
     inputs: &[OutputGroup],
