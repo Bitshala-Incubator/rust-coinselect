@@ -1,4 +1,4 @@
-#![allow(unused)]
+// #![allow(unused)]
 
 //! A blockchain-agnostic Rust Coinselection library
 
@@ -156,8 +156,6 @@ pub fn select_coin_bnb(
                 .fold(0, |acc, &i| acc + inputs[i].weight);
             let estimated_fee = 0;
             let waste = calculate_waste(
-                inputs,
-                &selected_inputs,
                 &options,
                 accumulated_value,
                 accumulated_weight,
@@ -340,8 +338,6 @@ fn knap_sack(
                             calculate_fee(accumulated_weight, options.target_feerate);
                         let index_vector: Vec<usize> = selected_inputs.into_iter().collect();
                         let waste: u64 = calculate_waste(
-                            inputs,
-                            &index_vector,
                             &options,
                             accumulated_value,
                             accumulated_weight,
@@ -372,8 +368,6 @@ fn knap_sack(
         let estimated_fees = calculate_fee(best_set_weight, options.target_feerate);
         let index_vector: Vec<usize> = best_set.into_iter().collect();
         let waste: u64 = calculate_waste(
-            inputs,
-            &index_vector,
             &options,
             best_set_value,
             best_set_weight,
@@ -434,8 +428,6 @@ pub fn select_coin_lowestlarger(
         Err(SelectionError::InsufficientFunds)
     } else {
         let waste: u64 = calculate_waste(
-            inputs,
-            &selected_inputs,
             &options,
             accumulated_value,
             accumulated_weight,
@@ -498,8 +490,6 @@ pub fn select_coin_fifo(
         Err(SelectionError::InsufficientFunds)
     } else {
         let waste: u64 = calculate_waste(
-            inputs,
-            &selected_inputs,
             &options,
             accumulated_value,
             accumulated_weight,
@@ -520,7 +510,7 @@ pub fn select_coin_srd(
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     // Randomize the inputs order to simulate the random draw
-    let mut rng = thread_rng();
+    let rng = thread_rng();
 
     // In out put we need to specify the indexes of the inputs in the given order
     // So keep track of the indexes when randomiz ing the vec
@@ -566,8 +556,6 @@ pub fn select_coin_srd(
     }
     // accumulated_weight += weightof(input_counts)?? TODO
     let waste = calculate_waste(
-        inputs,
-        &selected_inputs,
         &options,
         accumulated_value,
         accumulated_weight,
@@ -650,8 +638,6 @@ pub fn select_coin(
 
 #[inline]
 fn calculate_waste(
-    inputs: &[OutputGroup],
-    selected_inputs: &[usize],
     options: &CoinSelectionOpt,
     accumulated_value: u64,
     accumulated_weight: u32,
