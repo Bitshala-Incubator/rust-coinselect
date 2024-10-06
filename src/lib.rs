@@ -519,8 +519,6 @@ pub fn select_coin_srd(
     inputs: &[OutputGroup],
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
-    // Randomize the inputs order to simulate the random draw
-    let mut rng = thread_rng();
 
     // In out put we need to specify the indexes of the inputs in the given order
     // So keep track of the indexes when randomiz ing the vec
@@ -1542,8 +1540,8 @@ mod test {
 
     #[test]
     fn test_lowestlarger_successful() {
-        let mut inputs = setup_lowestlarger_output_groups();
-        let mut options = setup_options(20000);
+        let inputs = setup_lowestlarger_output_groups();
+        let options = setup_options(20000);
         let result = select_coin_lowestlarger(&inputs, options);
         assert!(result.is_ok());
         let selection_output = result.unwrap();
