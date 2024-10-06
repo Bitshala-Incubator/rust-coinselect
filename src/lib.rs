@@ -1,4 +1,4 @@
-// #![allow(unused)]
+#![allow(unused)]
 
 //! A blockchain-agnostic Rust Coinselection library
 
