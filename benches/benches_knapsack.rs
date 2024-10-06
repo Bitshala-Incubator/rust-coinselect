@@ -8,26 +8,19 @@ const CENT: u64 = 1_000_000;
 
 fn benchmark_select_coin_knapsack(c: &mut Criterion) {
     let inputs = {
-        const VALUE: [u64; 5] = [
-            6 * CENT,
-            7 * CENT,
-            8 * CENT,
-            20 * CENT,
-            30 * CENT,
-        ];
+        const VALUE: [u64; 5] = [6 * CENT, 7 * CENT, 8 * CENT, 20 * CENT, 30 * CENT];
         const WEIGHTS: [u32; 5] = [100, 200, 100, 10, 5];
         const TARGET_FEERATE: f32 = 0.77;
 
-        VALUE.iter()
+        VALUE
+            .iter()
             .zip(WEIGHTS.iter())
-            .map(|(&i, &j)| {
-                OutputGroup {
-                    value: i.saturating_add((j as f32 * TARGET_FEERATE).ceil() as u64),
-                    weight: j,
-                    input_count: 1,
-                    is_segwit: false,
-                    creation_sequence: None,
-                }
+            .map(|(&i, &j)| OutputGroup {
+                value: i.saturating_add((j as f32 * TARGET_FEERATE).ceil() as u64),
+                weight: j,
+                input_count: 1,
+                is_segwit: false,
+                creation_sequence: None,
             })
             .collect::<Vec<OutputGroup>>()
     };
@@ -39,7 +32,9 @@ fn benchmark_select_coin_knapsack(c: &mut Criterion) {
         const ADJUSTED_TARGET: u64 = 37 * CENT;
 
         CoinSelectionOpt {
-            target_value: ADJUSTED_TARGET - MIN_DRAIN_VALUE - (BASE_WEIGHT as f32 * TARGET_FEERATE).ceil() as u64,
+            target_value: ADJUSTED_TARGET
+                - MIN_DRAIN_VALUE
+                - (BASE_WEIGHT as f32 * TARGET_FEERATE).ceil() as u64,
             target_feerate: TARGET_FEERATE,
             long_term_feerate: Some(0.4),
             min_absolute_fee: 0,
