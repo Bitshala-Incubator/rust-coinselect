@@ -6,7 +6,33 @@ edition = "2021"
 [dependencies]
 rand = "0.8.5"
 
+[dev-dependencies]
+criterion = "0.3"
 
 #Empty default feature set, (helpful to generalise in github actions)
 [features]
 default = []
+
+[[bench]]
+name = "benches"
+harness = false
+
+[[bench]]
+name = "benches_srd"
+harness = false
+
+[[bench]]
+name = "benches_bnb"
+harness = false
+
+[[bench]]
+name = "benches_knapsack"
+harness = false
+
+[[bench]]
+name = "benches_lowestlarger"
+harness = false
+
+[[bench]]
+name = "benches_fifo"
+harness = false

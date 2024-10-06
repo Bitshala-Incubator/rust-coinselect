@@ -1451,6 +1451,7 @@ mod test {
             assert_ne!(fails, RANDOM_REPEATS);
         }
     }
+
     #[test]
     fn test_srd() {
         test_successful_selection();
