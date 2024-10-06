@@ -4,58 +4,51 @@ use rust_coinselect::{
     SelectionOutput,
 };
 
-const CENT: f64 = 1000000.0;
-
-fn knapsack_setup_output_groups(
-    value: Vec<u64>,
-    weights: Vec<u32>,
-    target_feerate: f32,
-) -> Vec<OutputGroup> {
-    let mut inputs: Vec<OutputGroup> = Vec::new();
-    for (i, j) in value.into_iter().zip(weights.into_iter()) {
-        let k = i.saturating_add((j as f32 * target_feerate).ceil() as u64);
-        inputs.push(OutputGroup {
-            value: k,
-            weight: j,
-            input_count: 1,
-            is_segwit: false,
-            creation_sequence: None,
-        })
-    }
-    inputs
-}
+const CENT: u64 = 1_000_000;
 
 fn benchmark_select_coin_knapsack(c: &mut Criterion) {
-    let inputs = knapsack_setup_output_groups(
-        vec![
-            (6.0 * CENT).round() as u64,
-            (7.0 * CENT).round() as u64,
-            (8.0 * CENT).round() as u64,
-            (20.0 * CENT).round() as u64,
-            (30.0 * CENT).round() as u64,
-        ],
-        vec![100, 200, 100, 10, 5],
-        0.77,
-    );
+    let inputs = {
+        const VALUE: [u64; 5] = [
+            6 * CENT,
+            7 * CENT,
+            8 * CENT,
+            20 * CENT,
+            30 * CENT,
+        ];
+        const WEIGHTS: [u32; 5] = [100, 200, 100, 10, 5];
+        const TARGET_FEERATE: f32 = 0.77;
+
+        VALUE.iter()
+            .zip(WEIGHTS.iter())
+            .map(|(&i, &j)| {
+                OutputGroup {
+                    value: i.saturating_add((j as f32 * TARGET_FEERATE).ceil() as u64),
+                    weight: j,
+                    input_count: 1,
+                    is_segwit: false,
+                    creation_sequence: None,
+                }
+            })
+            .collect::<Vec<OutputGroup>>()
+    };
 
     let options = {
-        let min_drain_value = 500;
-        let base_weight = 10;
-        let target_feerate = 0.56;
-        let adjusted_target = (37.0 * CENT).round() as u64;
-        let target_value =
-            adjusted_target - min_drain_value - (base_weight as f32 * target_feerate).ceil() as u64;
+        const MIN_DRAIN_VALUE: u64 = 500;
+        const BASE_WEIGHT: u32 = 10;
+        const TARGET_FEERATE: f32 = 0.56;
+        const ADJUSTED_TARGET: u64 = 37 * CENT;
+
         CoinSelectionOpt {
-            target_value,
-            target_feerate,
+            target_value: ADJUSTED_TARGET - MIN_DRAIN_VALUE - (BASE_WEIGHT as f32 * TARGET_FEERATE).ceil() as u64,
+            target_feerate: TARGET_FEERATE,
             long_term_feerate: Some(0.4),
             min_absolute_fee: 0,
-            base_weight,
+            base_weight: BASE_WEIGHT,
             drain_weight: 50,
             drain_cost: 10,
             cost_per_input: 20,
             cost_per_output: 10,
-            min_drain_value,
+            min_drain_value: MIN_DRAIN_VALUE,
             excess_strategy: ExcessStrategy::ToDrain,
         }
     };
