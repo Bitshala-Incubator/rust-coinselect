@@ -71,7 +71,7 @@ pub struct CoinSelectionOpt {
 pub enum ExcessStrategy {
     ToFee,
     ToRecipient,
-    ToDrain,
+    ToChange,
 }
 
 /// Error Describing failure of a selection attempt, on any subset of inputs.
@@ -667,11 +667,11 @@ fn calculate_waste(
         waste = (accumulated_weight as f32 * (options.target_feerate - long_term_feerate)).ceil()
             as u64;
     }
-    if options.excess_strategy != ExcessStrategy::ToDrain {
+    if options.excess_strategy != ExcessStrategy::ToChange {
         // Change is not created if excess strategy is ToFee or ToRecipient. Hence cost of change is added
         waste += (accumulated_value - (options.target_value + estimated_fee));
     } else {
-        // Change is created if excess strategy is set to ToDrain. Hence 'excess' should be set to 0
+        // Change is created if excess strategy is set to ToChange. Hence 'excess' should be set to 0
         waste += options.change_cost;
     }
     waste
@@ -857,7 +857,7 @@ mod test {
             cost_per_input: 20,
             cost_per_output: 10,
             min_change_value: 500,
-            excess_strategy: ExcessStrategy::ToDrain,
+            excess_strategy: ExcessStrategy::ToChange,
         }
     }
     fn knapsack_setup_options(adjusted_target: u64, target_feerate: f32) -> CoinSelectionOpt {
@@ -876,7 +876,7 @@ mod test {
             cost_per_input: 20,
             cost_per_output: 10,
             min_change_value,
-            excess_strategy: ExcessStrategy::ToDrain,
+            excess_strategy: ExcessStrategy::ToChange,
         }
     }
     fn knapsack_setup_output_groups(
@@ -932,7 +932,7 @@ mod test {
             cost_per_input: 20,
             cost_per_output: 10,
             min_change_value: 500,
-            excess_strategy: ExcessStrategy::ToDrain,
+            excess_strategy: ExcessStrategy::ToChange,
         }
     }
 
@@ -1333,7 +1333,7 @@ mod test {
                 cost_per_input: 20,
                 cost_per_output: 10,
                 min_change_value: (0.05 * CENT).round() as u64, // Setting minimum change value = 0.05 CENT. This will make the algorithm to avoid creating small change.
-                excess_strategy: ExcessStrategy::ToDrain,
+                excess_strategy: ExcessStrategy::ToChange,
             };
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
                 // Chekcing if knapsack selects exactly 2 inputs
