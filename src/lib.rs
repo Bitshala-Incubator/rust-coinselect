@@ -24,8 +24,6 @@ pub struct OutputGroup {
     pub weight: u32,
     /// The total number of inputs; so we can calculate extra `varint` weight due to `vin` length changes.
     pub input_count: usize,
-    /// Whether this [`OutputGroup`] contains at least one segwit spend.
-    pub is_segwit: bool,
     /// Specifies the relative creation sequence for this group, used only for FIFO selection.
     ///
     /// Set to `None` if FIFO selection is not required. Sequence numbers are arbitrary indices that denote the relative age of a UTXO group among a set of groups.
@@ -706,21 +704,18 @@ mod test {
                 value: 1000,
                 weight: 100,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 2000,
                 weight: 200,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 3000,
                 weight: 300,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
         ]
@@ -731,28 +726,24 @@ mod test {
                 value: 1000,
                 weight: 100,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: Some(1),
             },
             OutputGroup {
                 value: 2000,
                 weight: 200,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: Some(5000),
             },
             OutputGroup {
                 value: 3000,
                 weight: 300,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: Some(1001),
             },
             OutputGroup {
                 value: 1500,
                 weight: 150,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
         ]
@@ -763,84 +754,72 @@ mod test {
                 value: 100,
                 weight: 100,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 1500,
                 weight: 200,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 3400,
                 weight: 300,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 2200,
                 weight: 150,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 1190,
                 weight: 200,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 3300,
                 weight: 100,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 1000,
                 weight: 190,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 2000,
                 weight: 210,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 3000,
                 weight: 300,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 2250,
                 weight: 250,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 190,
                 weight: 220,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 1750,
                 weight: 170,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
         ]
@@ -893,7 +872,6 @@ mod test {
                 value: k,
                 weight: j,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             })
         }
@@ -914,7 +892,6 @@ mod test {
                 value: k,
                 weight: j,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             })
         }
@@ -943,56 +920,48 @@ mod test {
                 value: 55000,
                 weight: 500,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 400,
                 weight: 200,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 40000,
                 weight: 300,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 25000,
                 weight: 100,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 35000,
                 weight: 150,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 600,
                 weight: 250,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 30000,
                 weight: 120,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 5000,
                 weight: 50,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
         ];
@@ -1481,35 +1450,30 @@ mod test {
                 value: 1000,
                 weight: 100,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: Some(1),
             },
             OutputGroup {
                 value: 2000,
                 weight: 200,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None, // No sequence
             },
             OutputGroup {
                 value: 3000,
                 weight: 300,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: Some(0), // Oldest UTXO
             },
             OutputGroup {
                 value: 1500,
                 weight: 150,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None, // No sequence
             },
             OutputGroup {
                 value: 2500,
                 weight: 250,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: Some(5), // Newer UTXO
             },
         ];
