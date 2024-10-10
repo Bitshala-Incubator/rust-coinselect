@@ -1,23 +1,22 @@
-/// A [`OutputGroup`] represents an input candidate for Coinselection. This can either be a single UTXO, or a group of UTXOs that should be spent together.
+/// Represents an input candidate for Coinselection, either as a single UTXO or a group of UTXOs.
 ///
-/// The library user is responsible for crafting this structure correctly. Incorrect representation of this
-/// structure will cause incorrect selection result.
+/// A [`OutputGroup`] can be a single UTXO or a group that should be spent together.
+/// The library user must craft this structure correctly, as incorrect representation can lead to incorrect selection results.
 #[derive(Debug, Clone, Copy)]
 pub struct OutputGroup {
     /// Total value of the UTXO(s) that this [`WeightedValue`] represents.
     pub value: u64,
-    /// Total weight of including this/these UTXO(s).
-    /// `txin` fields: `prevout`, `nSequence`, `scriptSigLen`, `scriptSig`, `scriptWitnessLen`,
-    /// `scriptWitness` should all be included.
+    /// Total weight of including these UTXO(s) in the transaction.
+    ///
+    /// The `txin` fields: `prevout`, `nSequence`, `scriptSigLen`, `scriptSig`, `scriptWitnessLen`,
+    /// and `scriptWitness` should all be included.
     pub weight: u32,
     /// The total number of inputs; so we can calculate extra `varint` weight due to `vin` length changes.
     pub input_count: usize,
-    /// Whether this [`OutputGroup`] contains at least one segwit spend.
-    pub is_segwit: bool,
-    /// Relative Creation sequence for this group. Only used for FIFO selection. Specify None, if FIFO
-    /// selection is not required.
-    /// sequence numbers are arbitrary index only to denote relative age of utxo group among a set of groups.
-    /// To denote the oldest utxo group, give them a sequence number of Some(0).
+    /// Specifies the relative creation sequence for this group, used only for FIFO selection.
+    ///
+    /// Set to `None` if FIFO selection is not required. Sequence numbers are arbitrary indices that denote the relative age of a UTXO group among a set of groups.
+    /// To denote the oldest UTXO group, assign it a sequence number of `Some(0)`.
     pub creation_sequence: Option<u32>,
 }
 
@@ -35,20 +34,20 @@ pub struct CoinSelectionOpt {
 
     /// The weight of the template transaction, including fixed fields and outputs.
     pub base_weight: u32,
-    /// Additional weight if we include the drain (change) output.
-    pub drain_weight: u32,
+    /// Additional weight if we include the change output.
+    pub change_weight: u32,
 
-    /// Weight of spending the drain (change) output in the future.
-    pub drain_cost: u64,
+    /// Weight of spending the change output in the future.
+    pub change_cost: u64,
 
-    /// Estimate of cost of spending an input
+    /// Estimate of cost of spending an input.
     pub cost_per_input: u64,
 
-    /// Estimate of cost of spending the output
+    /// Estimate of cost of spending the output.
     pub cost_per_output: u64,
 
-    /// Minimum value allowed for a drain (change) output.
-    pub min_drain_value: u64,
+    /// Minimum value allowed for a change output.
+    pub min_change_value: u64,
 
     /// Strategy to use the excess value other than fee and target
     pub excess_strategy: ExcessStrategy,
@@ -59,10 +58,10 @@ pub struct CoinSelectionOpt {
 pub enum ExcessStrategy {
     ToFee,
     ToRecipient,
-    ToDrain,
+    ToChange,
 }
 
-/// Error Describing failure of a selection attempt, on any subset of inputs
+/// Error Describing failure of a selection attempt, on any subset of inputs.
 #[derive(Debug, PartialEq)]
 pub enum SelectionError {
     InsufficientFunds,
@@ -78,12 +77,12 @@ pub enum SelectionError {
 #[derive(Debug)]
 pub struct WasteMetric(pub u64);
 
-/// The result of selection algorithm
+/// The result of selection algorithm.
 #[derive(Debug)]
 pub struct SelectionOutput {
-    /// The selected input indices, refers to the indices of the inputs Slice Reference
+    /// The selected input indices, refers to the indices of the inputs Slice Reference.
     pub selected_inputs: Vec<usize>,
-    /// The waste amount, for the above inputs
+    /// The waste amount, for the above inputs.
     pub waste: WasteMetric,
 }
 
@@ -99,8 +98,8 @@ pub type CoinSelectionFn =
 
 #[derive(Debug)]
 pub struct SharedState {
-    pub(crate) result: Result<SelectionOutput, SelectionError>,
-    pub(crate) any_success: bool,
+    pub result: Result<SelectionOutput, SelectionError>,
+    pub any_success: bool,
 }
 
 /// Struct for three arguments : target_for_match, match_range and target_feerate
@@ -110,7 +109,7 @@ pub struct SharedState {
 /// Fit in : 1 XMM register, 1 GPR
 #[derive(Debug)]
 pub struct MatchParameters {
-    pub(crate) target_for_match: u64,
-    pub(crate) match_range: u64,
-    pub(crate) target_feerate: f32,
+    pub target_for_match: u64,
+    pub match_range: u64,
+    pub target_feerate: f32,
 }

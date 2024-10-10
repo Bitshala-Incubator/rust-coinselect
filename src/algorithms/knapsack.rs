@@ -13,7 +13,7 @@ pub fn select_coin_knapsack(
     options: CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     let adjusted_target = options.target_value
-        + options.min_drain_value
+        + options.min_change_value
         + calculate_fee(options.base_weight, options.target_feerate);
     let mut smaller_coins = inputs
         .iter()
@@ -119,24 +119,25 @@ mod test {
     const RANDOM_REPEATS: u32 = 5;
 
     fn knapsack_setup_options(adjusted_target: u64, target_feerate: f32) -> CoinSelectionOpt {
-        let min_drain_value = 500;
+        let min_change_value = 500;
         let base_weight = 10;
         let target_value =
-            adjusted_target - min_drain_value - calculate_fee(base_weight, target_feerate);
+            adjusted_target - min_change_value - calculate_fee(base_weight, target_feerate);
         CoinSelectionOpt {
             target_value,
             target_feerate, // Simplified feerate
             long_term_feerate: Some(0.4),
             min_absolute_fee: 0,
             base_weight,
-            drain_weight: 50,
-            drain_cost: 10,
+            change_weight: 50,
+            change_cost: 10,
             cost_per_input: 20,
             cost_per_output: 10,
-            min_drain_value,
-            excess_strategy: ExcessStrategy::ToDrain,
+            min_change_value,
+            excess_strategy: ExcessStrategy::ToChange,
         }
     }
+
     fn knapsack_setup_output_groups(
         value: Vec<u64>,
         weights: Vec<u32>,
@@ -151,7 +152,6 @@ mod test {
                 value: k,
                 weight: j,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             })
         }
@@ -172,7 +172,6 @@ mod test {
                 value: k,
                 weight: j,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             })
         }
@@ -459,12 +458,12 @@ mod test {
                 long_term_feerate: Some(0.4),
                 min_absolute_fee: 0,
                 base_weight: 10,
-                drain_weight: 50,
-                drain_cost: 10,
+                change_weight: 50,
+                change_cost: 10,
                 cost_per_input: 20,
                 cost_per_output: 10,
-                min_drain_value: (0.05 * CENT).round() as u64, // Setting minimum drain value = 0.05 CENT. This will make the algorithm to avoid creating small change.
-                excess_strategy: ExcessStrategy::ToDrain,
+                min_change_value: (0.05 * CENT).round() as u64, // Setting minimum change value = 0.05 CENT. This will make the algorithm to avoid creating small change.
+                excess_strategy: ExcessStrategy::ToChange,
             };
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
                 // Chekcing if knapsack selects exactly 2 inputs
@@ -536,10 +535,10 @@ mod test {
         let mut selected_input_2: Vec<usize> = Vec::new();
         for _ in 0..RUN_TESTS {
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                selected_input_1 = result.selected_inputs.clone();
+                selected_input_1.clone_from(&result.selected_inputs);
             }
             if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                selected_input_2 = result.selected_inputs.clone();
+                selected_input_2.clone_from(&result.selected_inputs);
             }
             // Checking if the selected inputs, in two consequtive calls of the knapsack function are not the same
             assert_ne!(selected_input_1, selected_input_2);
@@ -559,18 +558,21 @@ mod test {
             vec![100, 10, 50, 52, 13],
             0.34,
         );
-        /*Trying to make 160,000,000 SATS from the wallet.
-        Checking if the algorithm can pick a random sample of inputs (from a set of 105) to make 160,000,000 SATS.
-        When choosing 1 from 100 identical inputs (1 COIN), there is a 1% chance of selcting the same input twice. Hence we limit our randomeness check to the condition that, out of 5 trials, if the algorithm picks the same set of inputs 5 times, then we conclude that the algorithm isn't random enough */
+        /* Testing if the algorithm can randomly select inputs to make 160,000,000 SATS.
+
+        The test checks if the algorithm can pick a random sample of inputs (from a set of 105) to make 160,000,000 SATS.
+        When choosing 1 from 100 identical inputs (1 COIN), there is a 1% chance of selecting the same input twice.
+        To evaluate randomness, we limit our check to 5 trials: if the algorithm picks the same set of inputs 5 times,
+        we conclude that the algorithm isn't random enough. */
         let options = knapsack_setup_options(((60.0 * CENT) + COIN).round() as u64, 0.34);
         let mut fails = 0;
         for _ in 0..RUN_TESTS {
             for _ in 0..RANDOM_REPEATS {
                 if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                    selected_input_1 = result.selected_inputs.clone();
+                    selected_input_1.clone_from(&result.selected_inputs);
                 }
                 if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                    selected_input_2 = result.selected_inputs.clone();
+                    selected_input_2.clone_from(&result.selected_inputs);
                 }
                 if selected_input_1 == selected_input_2 {
                     fails += 1;

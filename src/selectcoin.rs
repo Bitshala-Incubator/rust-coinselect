@@ -83,21 +83,18 @@ mod test {
                 value: 1000,
                 weight: 100,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 2000,
                 weight: 200,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 3000,
                 weight: 300,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
         ]
@@ -110,12 +107,12 @@ mod test {
             long_term_feerate: Some(0.4),
             min_absolute_fee: 0,
             base_weight: 10,
-            drain_weight: 50,
-            drain_cost: 10,
+            change_weight: 50,
+            change_cost: 10,
             cost_per_input: 20,
             cost_per_output: 10,
-            min_drain_value: 500,
-            excess_strategy: ExcessStrategy::ToDrain,
+            min_change_value: 500,
+            excess_strategy: ExcessStrategy::ToChange,
         }
     }
 

@@ -14,7 +14,7 @@ pub fn select_coin_lowestlarger(
     let mut accumulated_weight: u32 = 0;
     let mut selected_inputs: Vec<usize> = Vec::new();
     let mut estimated_fees: u64 = 0;
-    let target = options.target_value + options.min_drain_value;
+    let target = options.target_value + options.min_change_value;
 
     let mut sorted_inputs: Vec<_> = inputs.iter().enumerate().collect();
     sorted_inputs.sort_by_key(|(_, input)| effective_value(input, options.target_feerate));
@@ -79,88 +79,77 @@ mod test {
                 value: 100,
                 weight: 100,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 1500,
                 weight: 200,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 3400,
                 weight: 300,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 2200,
                 weight: 150,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 1190,
                 weight: 200,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 3300,
                 weight: 100,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 1000,
                 weight: 190,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 2000,
                 weight: 210,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 3000,
                 weight: 300,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 2250,
                 weight: 250,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 190,
                 weight: 220,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
             OutputGroup {
                 value: 1750,
                 weight: 170,
                 input_count: 1,
-                is_segwit: false,
                 creation_sequence: None,
             },
         ]
     }
+
     fn setup_options(target_value: u64) -> CoinSelectionOpt {
         CoinSelectionOpt {
             target_value,
@@ -168,12 +157,12 @@ mod test {
             long_term_feerate: Some(0.4),
             min_absolute_fee: 0,
             base_weight: 10,
-            drain_weight: 50,
-            drain_cost: 10,
+            change_weight: 50,
+            change_cost: 10,
             cost_per_input: 20,
             cost_per_output: 10,
-            min_drain_value: 500,
-            excess_strategy: ExcessStrategy::ToDrain,
+            min_change_value: 500,
+            excess_strategy: ExcessStrategy::ToChange,
         }
     }
 

@@ -20,12 +20,12 @@ pub fn calculate_waste(
         waste = (accumulated_weight as f32 * (options.target_feerate - long_term_feerate)).ceil()
             as u64;
     }
-    if options.excess_strategy != ExcessStrategy::ToDrain {
+    if options.excess_strategy != ExcessStrategy::ToChange {
         // Change is not created if excess strategy is ToFee or ToRecipient. Hence cost of change is added
         waste += accumulated_value - (options.target_value + estimated_fee);
     } else {
-        // Change is created if excess strategy is set to ToDrain. Hence 'excess' should be set to 0
-        waste += options.drain_cost;
+        // Change is created if excess strategy is set to ToChange. Hence 'excess' should be set to 0
+        waste += options.change_cost;
     }
     waste
 }
@@ -52,7 +52,7 @@ pub fn calculate_fee(weight: u32, rate: f32) -> u64 {
     (weight as f32 * rate).ceil() as u64
 }
 
-/// Returns the effective value which is the actual value minus the estimated fee of the OutputGroup
+/// Returns the effective value of the `OutputGroup`, which is the actual value minus the estimated fee.
 #[inline]
 pub fn effective_value(output: &OutputGroup, feerate: f32) -> u64 {
     output
