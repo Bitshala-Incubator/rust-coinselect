@@ -149,7 +149,7 @@ fn create_outputgroup(
             value: tx.output.iter().map(|op| op.value.to_sat()).sum(),
             weight: tx.total_size() as u32,
             input_count: tx.input.len(),
-            creation_sequence: Some(creation_sequence.clone()),
+            creation_sequence: Some(creation_sequence),
         })
     }
     info!(
@@ -193,9 +193,9 @@ fn create_select_options() -> Result<Vec<CoinSelectionOpt>, Box<dyn std::error::
 }
 
 fn perform_select_coin(utxos: Vec<OutputGroup>, coin_select_options_vec: Vec<CoinSelectionOpt>) {
-    for i in 0..5 {
+    for (i, coin_select_options) in coin_select_options_vec.iter().enumerate().take(5) {
         info!("Performing {:?} iteration of coin selection", i);
-        match select_coin(&utxos, coin_select_options_vec[i]) {
+        match select_coin(&utxos, coin_select_options.clone()) {
             Ok(selectionoutput) => {
                 println!("Selected utxo details: {:?}", selectionoutput);
             }
