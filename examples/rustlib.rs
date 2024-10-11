@@ -13,7 +13,6 @@ use rust_coinselect::{
 };
 use serde_derive::{Deserialize, Serialize};
 // use std::f32::consts::E;
-use env_logger;
 use itertools::Itertools;
 use log::{error, info};
 use rand::Rng;
@@ -183,7 +182,7 @@ fn create_select_options() -> Result<Vec<CoinSelectionOpt>, Box<dyn std::error::
             cost_per_input: rng.gen_range(1..10) as u64,
             cost_per_output: rng.gen_range(1..10) as u64,
             min_change_value: rng.gen_range(100..1000) as u64,
-            excess_strategy: excess_strategy,
+            excess_strategy,
         })
     }
     info!(

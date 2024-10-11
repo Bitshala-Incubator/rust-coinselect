@@ -4,8 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bitcoin = "0.32.3"
+itertools = "0.13.0"
 rand = "0.8.5"
-
+serde = "1.0.210"
+serde_derive = "1.0.210"
+serde_json = "1.0.128"
+log = "0.4"
+env_logger = "0.9"
+rand_chacha = "0.3"
 
 #Empty default feature set, (helpful to generalise in github actions)
 [features]
