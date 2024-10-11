@@ -1,0 +1,18 @@
+[
+    {
+        "value": 0.2,
+        "script_pubkey": "a91409f6eed90e2ec7fed923b3d0b9d026efded6335c87"
+    },
+    {
+        "value": 0.34586,
+        "script_pubkey": "a914e0f2dc9b668e54ee8198a683afaa6a837a8939fc87"
+    },
+    {
+        "value": 0.034500,
+        "script_pubkey": "76a914e8cdb871958da45f245270076b72dc31f92804a488ac"
+    },
+    {
+        "value": 23,
+        "script_pubkey": "00142fffa9a09bb7fa7dced44834d77ee81c49c5f0cc"
+    }
+]

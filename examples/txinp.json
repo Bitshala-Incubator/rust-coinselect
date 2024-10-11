@@ -1,0 +1,16 @@
+[
+    {
+        "txid": "e1926a751f36c25541263ca4b621f1e3376e15117c170e60ba82b113bda3cba6",
+        "vout" : 0,
+        "scriptSig" : "47304402203743aeedace4ec68892c825ed674234b7c834268304aaaf76958d2da5670a9b702207b01a50a5c047023ac5a5b90367b1bd862ac6a4914b023a7c5463b3f8e3690710141047146f0e0fcb3139947cf0beb870fe251930ca10d4545793d31033e801b5219abf56c11a3cf3406ca590e4c14b0dab749d20862b3adc4709153c280c2a78be10c",
+        "sequence": "0xffffffff",
+        "witness": []
+    },
+    {
+        "txid": "4c75c5c65ea515f6830944c23599d32b731f4cef436355dd28a36b97a5e5cea2",
+        "vout" : 1,
+        "scriptSig" : "",
+        "sequence": "0xffffffff",
+        "witness": ["3044022068ff549a136becece32917830ef400a21716ea8778b1bc973d4f7f50b069ac620220295ec9611a3f748f640ca2f6de1a2e4a037092cffd144d48ce8ac24f293eaf6e01", "026e5628506ecd33242e5ceb5fdafe4d3066b5c0f159b3c05a621ef65f177ea286"]
+    }
+]
