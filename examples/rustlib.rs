@@ -195,7 +195,7 @@ fn create_select_options() -> Result<Vec<CoinSelectionOpt>, Box<dyn std::error::
 fn perform_select_coin(utxos: Vec<OutputGroup>, coin_select_options_vec: Vec<CoinSelectionOpt>) {
     for (i, coin_select_options) in coin_select_options_vec.iter().enumerate().take(5) {
         info!("Performing {:?} iteration of coin selection", i);
-        match select_coin(&utxos, coin_select_options.clone()) {
+        match select_coin(&utxos, *coin_select_options) {
             Ok(selectionoutput) => {
                 println!("Selected utxo details: {:?}", selectionoutput);
             }
