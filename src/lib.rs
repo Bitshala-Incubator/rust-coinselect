@@ -190,13 +190,14 @@ fn bnb(
         return Some(selected_inputs.to_vec());
     }
 
-    // Decrement of bnb_tries for every iteration
-    *bnb_tries -= 1;
     // Capping the number of iterations on the computation
     if *bnb_tries == 0 || depth >= inputs_in_desc_value.len() {
         return None;
     }
     if rng.gen_bool(0.5) {
+        // Decrement of bnb_tries for every iteration
+        *bnb_tries -= 1;
+
         // exploring the inclusion branch
         // first include then omit
         let new_effective_value = acc_eff_value
