@@ -186,6 +186,7 @@ fn bnb(
     if acc_eff_value > match_parameters.target_for_match + match_parameters.match_range {
         return None;
     }
+
     if acc_eff_value >= match_parameters.target_for_match {
         return Some(selected_inputs.to_vec());
     }
@@ -194,10 +195,11 @@ fn bnb(
     if *bnb_tries == 0 || depth >= inputs_in_desc_value.len() {
         return None;
     }
-    if rng.gen_bool(0.5) {
-        // Decrement of bnb_tries for every iteration
-        *bnb_tries -= 1;
 
+    // Decrement of bnb_tries for every iteration
+    *bnb_tries -= 1;
+
+    if rng.gen_bool(0.5) {
         // exploring the inclusion branch
         // first include then omit
         let new_effective_value = acc_eff_value
