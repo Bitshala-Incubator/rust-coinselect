@@ -14,7 +14,6 @@ use rust_coinselect::{
 use serde_derive::{Deserialize, Serialize};
 // use std::f32::consts::E;
 use itertools::Itertools;
-use log::{error, info};
 use rand::Rng;
 use std::fs;
 use std::{collections::HashSet, error::Error, fmt, fs::File, io::Read, path::Path, str::FromStr};
@@ -67,7 +66,7 @@ fn json_to_txin(filedata: &str) -> Result<Vec<TxIn>, Box<dyn std::error::Error>>
             witness: witnessdata,
         });
     }
-    info!("Successfully read input JSON file");
+
     Ok(tx_in_vec)
 }
 
@@ -83,7 +82,7 @@ fn json_to_txout(filedata: &str) -> Result<Vec<TxOut>, Box<dyn std::error::Error
             script_pubkey: op_script_pubkey,
         });
     }
-    info!("Successfully read output JSON file");
+
     Ok(tx_out_vec)
 }
 fn create_transaction(
@@ -122,10 +121,6 @@ fn compose_transaction(
             }
         }
     }
-    info!(
-        "Successfully created {:?} transactions",
-        transactions_vec.len()
-    );
     Ok(transactions_vec)
 }
 
@@ -152,10 +147,7 @@ fn create_outputgroup(
             creation_sequence: Some(creation_sequence),
         })
     }
-    info!(
-        "Successfully created {:?} outputgroups",
-        output_group_vec.len()
-    );
+
     Ok(output_group_vec)
 }
 
@@ -185,19 +177,22 @@ fn create_select_options() -> Result<Vec<CoinSelectionOpt>, Box<dyn std::error::
             excess_strategy,
         })
     }
-    info!(
-        "Successfully created {:?} selection options",
-        coin_select_options_vec.len()
-    );
     Ok(coin_select_options_vec)
 }
 
 fn perform_select_coin(utxos: Vec<OutputGroup>, coin_select_options_vec: Vec<CoinSelectionOpt>) {
+    println!("The total numner of UTXOs available: {:?}", utxos.len());
     for (i, coin_select_options) in coin_select_options_vec.iter().enumerate().take(5) {
-        info!("Performing {:?} iteration of coin selection", i);
+        println!(
+            "Selecting UTXOs to total: {:?} sats",
+            coin_select_options.target_value
+        );
         match select_coin(&utxos, *coin_select_options) {
             Ok(selectionoutput) => {
-                println!("Selected utxo details: {:?}", selectionoutput);
+                println!(
+                    "Selected utxo index and waste metrics are: {:?}",
+                    selectionoutput
+                );
             }
             Err(e) => {
                 println!("Error performing coin selection: {:?}", e);
@@ -206,7 +201,6 @@ fn perform_select_coin(utxos: Vec<OutputGroup>, coin_select_options_vec: Vec<Coi
     }
 }
 fn main() {
-    env_logger::init();
     //Read and parse input
     let inputs = match read_json_file("txinp.json") {
         Ok(filedata) => match json_to_txin(&filedata) {
