@@ -84,7 +84,6 @@ fn bnb(
     if acc_eff_value > match_parameters.target_for_match + match_parameters.match_range {
         return None;
     }
-
     if acc_eff_value >= match_parameters.target_for_match {
         return Some(selected_inputs.to_vec());
     }

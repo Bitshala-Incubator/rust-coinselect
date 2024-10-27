@@ -85,12 +85,7 @@ fn knap_sack(
         let best_set_weight = calculate_accumulated_weight(smaller_coins, &best_set);
         let estimated_fees = calculate_fee(best_set_weight, options.target_feerate);
         let index_vector: Vec<usize> = best_set.into_iter().collect();
-        let waste: u64 = calculate_waste(
-            &options,
-            best_set_value,
-            best_set_weight,
-            estimated_fees,
-        );
+        let waste: u64 = calculate_waste(&options, best_set_value, best_set_weight, estimated_fees);
         Ok(SelectionOutput {
             selected_inputs: index_vector,
             waste: WasteMetric(waste),

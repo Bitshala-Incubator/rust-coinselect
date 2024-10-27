@@ -64,6 +64,7 @@ pub fn select_coin_fifo(
         })
     }
 }
+
 #[cfg(test)]
 mod test {
 
