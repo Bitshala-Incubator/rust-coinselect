@@ -68,7 +68,7 @@ pub enum SelectionError {
     NoSolutionFound,
 }
 
-/// Measures the efficiency of input selection in satoshis, helping evaluate algorithms based on current and long-term fee rates.
+/// Measures the efficiency of input selection in satoshis, helping evaluate algorithms based on current and long-term fee rates
 ///
 /// WasteMetric strikes a balance between minimizing current transaction fees and overall fees during the wallet's lifetime.
 /// In high fee rate environments, selecting fewer inputs reduces transaction fees.
