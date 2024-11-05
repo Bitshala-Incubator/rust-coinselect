@@ -16,8 +16,6 @@ jobs:
 
       - name: Set default toolchain
         run: rustup default nightly
-      - name: Set profile
-        run: rustup set profile minimal
 
       # Pin grcov to v0.8.2 because of build failure at 0.8.3
       - name: Install grcov
