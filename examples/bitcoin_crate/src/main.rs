@@ -13,7 +13,6 @@ use rust_coinselect::{
     types::{CoinSelectionOpt, ExcessStrategy, OutputGroup, SelectionError, SelectionOutput},
 };
 use serde_derive::{Deserialize, Serialize};
-// use std::f32::consts::E;
 use itertools::Itertools;
 use rand::{seq::SliceRandom, thread_rng, Rng};
 use std::fs;
