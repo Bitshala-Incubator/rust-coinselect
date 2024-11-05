@@ -8,13 +8,13 @@ use bitcoin::{
     absolute::LockTime, hex::FromHex, transaction, Amount, OutPoint, ScriptBuf, Sequence,
     Transaction, TxIn, TxOut, Txid, Witness,
 };
+use itertools::Itertools;
+use rand::{seq::SliceRandom, thread_rng, Rng};
 use rust_coinselect::{
     selectcoin::select_coin,
     types::{CoinSelectionOpt, ExcessStrategy, OutputGroup, SelectionError, SelectionOutput},
 };
 use serde_derive::{Deserialize, Serialize};
-use itertools::Itertools;
-use rand::{seq::SliceRandom, thread_rng, Rng};
 use std::fs;
 use std::{collections::HashSet, error::Error, fmt, fs::File, io::Read, path::Path, str::FromStr};
 
