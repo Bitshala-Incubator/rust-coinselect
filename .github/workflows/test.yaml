@@ -15,7 +15,7 @@ jobs:
 
       - name: Install nightly toolchain and install grcov
         run: |
-          rustup toolchain install nightly
+          rustup toolchain install nightly 1.74
           rustup default nightly
           rustup component add llvm-tools-preview
           cargo install grcov
