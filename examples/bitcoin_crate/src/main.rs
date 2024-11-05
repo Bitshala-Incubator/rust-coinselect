@@ -9,7 +9,8 @@ use bitcoin::{
     Transaction, TxIn, TxOut, Txid, Witness,
 };
 use rust_coinselect::{
-    selectcoin::select_coin, types::{CoinSelectionOpt, ExcessStrategy, OutputGroup, SelectionError, SelectionOutput},
+    selectcoin::select_coin,
+    types::{CoinSelectionOpt, ExcessStrategy, OutputGroup, SelectionError, SelectionOutput},
 };
 use serde_derive::{Deserialize, Serialize};
 // use std::f32::consts::E;
