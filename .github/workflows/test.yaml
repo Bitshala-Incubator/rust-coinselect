@@ -14,6 +14,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Install nightly
+        run: rustup toolchain install nightly
+
       - name: Set default toolchain
         run: rustup default nightly
       - name: Set profile
