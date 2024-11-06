@@ -1,23 +1,24 @@
-#![allow(unused)]
+/*  An example showing how to use the rust bitcoin crate with the coinselect crate. The input and output details are stored in separate JSON files. The inputs and outputs are first read from the file and UTXOs are constructed using a combination of the inputs and outputs. The coin selection options are initiated. The UTXOs are then converted in OutputGroups. Finally the vector of OutputGroups and CoinSelectionOpt are used to call the coin selection method to perform the selection operation.
+*/
 extern crate bitcoin;
 extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
 use bitcoin::{
-    absolute::LockTime, hex::FromHex, transaction, Amount, OutPoint, ScriptBuf, Sequence,
-    Transaction, TxIn, TxOut, Txid, Witness,
+    absolute::LockTime, transaction, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn,
+    TxOut, Txid, Witness,
 };
-use itertools::Itertools;
-use rand::{seq::SliceRandom, thread_rng, Rng};
+use rand::Rng;
 use rust_coinselect::{
     selectcoin::select_coin,
-    types::{CoinSelectionOpt, ExcessStrategy, OutputGroup, SelectionError, SelectionOutput},
+    types::{CoinSelectionOpt, ExcessStrategy, OutputGroup},
 };
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
 use std::fs;
-use std::{collections::HashSet, error::Error, fmt, fs::File, io::Read, path::Path, str::FromStr};
+use std::{collections::HashSet, path::Path, str::FromStr};
 
+// A struct to read and store transaction inputs from the JSON file
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TxInJson {
@@ -27,7 +28,7 @@ struct TxInJson {
     sequence: String,
     witness: Vec<String>,
 }
-
+// A struct to read and store transaction outputs from the JSON file
 #[derive(Deserialize)]
 struct TxOutJson {
     value: f64,
@@ -47,7 +48,7 @@ fn read_json_file(file_path: &str) -> Result<String, Box<dyn std::error::Error>>
     }
 }
 fn json_to_txin(filedata: &str) -> Result<Vec<TxIn>, Box<dyn std::error::Error>> {
-    // Parse transaction output data from JSON file into TxIn struct
+    // Parse transaction output data from JSON file into TxIn struct of the bitcoin crate
     let tx_in_json_vec: Vec<TxInJson> = serde_json::from_str(filedata)?;
     let mut tx_in_vec: Vec<TxIn> = Vec::new();
     for tx_inp in tx_in_json_vec {
@@ -71,7 +72,7 @@ fn json_to_txin(filedata: &str) -> Result<Vec<TxIn>, Box<dyn std::error::Error>>
 }
 
 fn json_to_txout(filedata: &str) -> Result<Vec<TxOut>, Box<dyn std::error::Error>> {
-    // Parse transaction output data from JSON file into TxOut struct
+    // Parse transaction output data from JSON file into TxOut struct of the bitcoin crate
     let tx_out_json_vec: Vec<TxOutJson> = serde_json::from_str(filedata)?;
     let mut tx_out_vec: Vec<TxOut> = Vec::new();
     for tx_op in tx_out_json_vec {
@@ -85,11 +86,12 @@ fn json_to_txout(filedata: &str) -> Result<Vec<TxOut>, Box<dyn std::error::Error
 
     Ok(tx_out_vec)
 }
+// The 'Transaction' struct of the bitcoin crate represents an UTXO. Here, the inputs (TxIn) and outputs (TxOut) are used to construct the 'Transaction' struct.
 fn create_transaction(
     txinput: Vec<TxIn>,
     txoutput: Vec<TxOut>,
 ) -> Result<Transaction, Box<dyn std::error::Error>> {
-    // Create a new transaction with the given vector of inputs and outputs. Assume version = 2 and locktime = 0
+    // Create a new transaction with the given vector of inputs and outputs. Assuming version = 2 and locktime = 0
     Ok(Transaction {
         version: transaction::Version::TWO,
         lock_time: LockTime::ZERO,
@@ -97,44 +99,41 @@ fn create_transaction(
         output: txoutput,
     })
 }
-
+// UTXO (Transaction) is a combination of inputs and outputs. Here we pick inputs and outputs from the vector of TxIn and TxOut to construct the UTXO.
 fn compose_transaction(
     inputs: Vec<TxIn>,
     outputs: Vec<TxOut>,
 ) -> Result<Vec<Transaction>, Box<dyn std::error::Error>> {
     // Generate combinations of inputs and outputs and create transactions using them
     let mut transactions_vec: Vec<Transaction> = Vec::new();
-    // Limiting the length of inputs and outputs to prevent stack overflow
-    let max_input_no = std::cmp::min(3, inputs.len());
-    let max_output_no = std::cmp::min(3, outputs.len());
-    // Processing the combinations of inputs and outputs in chunks to prevent stack overflow
-    let chunk_size = 100;
-    let mut rng = thread_rng();
-    for inputs_size in 1..=max_input_no {
-        for outputs_size in 1..=max_output_no {
-            // process the combinations in chucks
-            let mut input_combinations: Vec<Vec<&TxIn>> =
-                inputs.iter().combinations(inputs_size).collect();
-            let mut output_combinations: Vec<Vec<&TxOut>> =
-                outputs.iter().combinations(outputs_size).collect();
-            // Shuffling the combinations
-            input_combinations.shuffle(&mut rng);
-            output_combinations.shuffle(&mut rng);
-            for inputs_chunk in input_combinations.chunks(chunk_size) {
-                for outputs_chunk in output_combinations.chunks(chunk_size) {
-                    for combination_input in inputs_chunk {
-                        for combination_output in outputs_chunk {
-                            let tx = create_transaction(
-                                combination_input.iter().cloned().cloned().collect(),
-                                combination_output.iter().cloned().cloned().collect(),
-                            )?;
-                            transactions_vec.push(tx);
-                        }
-                    }
-                }
-            }
-        }
-    }
+
+    // UTXO 1 : Two inputs and one output
+    let selected_inputs: Vec<TxIn> = inputs.iter().take(2).cloned().collect();
+    let selected_outputs: Vec<TxOut> = vec![outputs[2].clone()];
+    let new_transaction: Transaction = create_transaction(selected_inputs, selected_outputs)?;
+    transactions_vec.push(new_transaction);
+
+    // UTXO 2 : Three inputs and three outputs
+    let selected_inputs: Vec<TxIn> = inputs.iter().skip(2).take(3).cloned().collect();
+    let selected_outputs: Vec<TxOut> = outputs.iter().skip(3).take(3).cloned().collect();
+    let new_transaction: Transaction = create_transaction(selected_inputs, selected_outputs)?;
+    transactions_vec.push(new_transaction);
+
+    // UTXO 3: Five inputs and five outputs
+    let selected_inputs: Vec<TxIn> = inputs.iter().take(5).cloned().collect();
+    let selected_outputs: Vec<TxOut> = outputs.iter().skip(1).take(5).cloned().collect();
+    let new_transaction: Transaction = create_transaction(selected_inputs, selected_outputs)?;
+    transactions_vec.push(new_transaction);
+    // UTXO 4: One input and 7 ouputs
+    let selected_inputs: Vec<TxIn> = vec![inputs[5].clone()];
+    let selected_outputs: Vec<TxOut> = outputs.iter().take(7).cloned().collect();
+    let new_transaction: Transaction = create_transaction(selected_inputs, selected_outputs)?;
+    transactions_vec.push(new_transaction);
+    // UTXO 5: Two inputs and one output
+    let selected_inputs: Vec<TxIn> = inputs.iter().skip(4).take(2).cloned().collect();
+    let selected_outputs: Vec<TxOut> = vec![outputs[6].clone()];
+    let new_transaction: Transaction = create_transaction(selected_inputs, selected_outputs)?;
+    transactions_vec.push(new_transaction);
     Ok(transactions_vec)
 }
 
@@ -195,10 +194,22 @@ fn create_select_options() -> Result<Vec<CoinSelectionOpt>, Box<dyn std::error::
 }
 
 fn perform_select_coin(utxos: Vec<OutputGroup>, coin_select_options_vec: Vec<CoinSelectionOpt>) {
-    println!("The total numner of UTXOs available: {:?}", utxos.len());
-    for (i, coin_select_options) in coin_select_options_vec.iter().enumerate().take(5) {
+    // Printing information about the UTXOs used for slection
+    println!("\nThe total numner of UTXOs available: {:?}", utxos.len());
+    for (i, utxo) in utxos.iter().enumerate() {
+        println!("\nUTXO #:{}", i);
+        println!("\nValue:{} sats", utxo.value);
+        println!("Weight:{} bytes", utxo.weight);
+        println!("No. of Inputs: {}", utxo.input_count);
         println!(
-            "Selecting UTXOs to total: {:?} sats",
+            "Creation Sequence: {:?}",
+            utxo.creation_sequence.unwrap_or(0)
+        );
+    }
+
+    for (_, coin_select_options) in coin_select_options_vec.iter().enumerate().take(5) {
+        println!(
+            "\nSelecting UTXOs to total: {:?} sats",
             coin_select_options.target_value
         );
         match select_coin(&utxos, *coin_select_options) {
@@ -215,7 +226,7 @@ fn perform_select_coin(utxos: Vec<OutputGroup>, coin_select_options_vec: Vec<Coi
     }
 }
 fn main() {
-    //Read and parse input
+    //Read and parse inputs from JSON file
     let inputs = match read_json_file("examples/bitcoin_crate/txdata/txinp.json") {
         Ok(filedata) => match json_to_txin(&filedata) {
             Ok(txin_vec) => txin_vec,
@@ -229,7 +240,7 @@ fn main() {
             return;
         }
     };
-    // Read and parse output file
+    // Read and parse outputs from JSON file
     let outputs = match read_json_file("examples/bitcoin_crate/txdata/txop.json") {
         Ok(filedata) => match json_to_txout(&filedata) {
             Ok(txout_vec) => txout_vec,
