@@ -10,6 +10,8 @@ keywords = ["UTXO", "coinselect"]
 license = "MIT"
 repository = "https://github.com/Bitshala-Incubator/rust-coinselect"
 
+exclude = [".github"]
+
 [dependencies]
 rand = "0.8.5"
 
