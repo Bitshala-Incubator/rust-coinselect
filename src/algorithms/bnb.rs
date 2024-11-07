@@ -32,11 +32,12 @@ pub fn select_coin_bnb(
 
     let rng = &mut thread_rng();
 
+    let cost_per_input = calculate_fee(options.base_weight, options.target_feerate);
+    let cost_per_output = calculate_fee(options.avg_output_weight, options.target_feerate);
+
     let match_parameters = MatchParameters {
-        target_for_match: options.target_value
-            + calculate_fee(options.base_weight, options.target_feerate)
-            + options.cost_per_output,
-        match_range: options.cost_per_input + options.cost_per_output,
+        target_for_match: options.target_value + calculate_fee(options.base_weight, options.target_feerate),
+        match_range: cost_per_input + cost_per_output,
         target_feerate: options.target_feerate,
     };
 
@@ -219,8 +220,8 @@ mod test {
             base_weight: 10,
             change_weight: 50,
             change_cost: 10,
-            cost_per_input: 20,
-            cost_per_output: 10,
+            avg_input_weight: 40,
+            avg_output_weight: 20,
             min_change_value: 500,
             excess_strategy: ExcessStrategy::ToChange,
         }

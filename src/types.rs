@@ -1,6 +1,7 @@
 /// Represents an input candidate for Coinselection, either as a single UTXO or a group of UTXOs.
 ///
 /// A [`OutputGroup`] can be a single UTXO or a group that should be spent together.
+/// For privacy reasons it might be a good choice to spend a group of UTXOs together.
 /// The library user must craft this structure correctly, as incorrect representation can lead to incorrect selection results.
 #[derive(Debug, Clone, Copy)]
 pub struct OutputGroup {
@@ -11,7 +12,7 @@ pub struct OutputGroup {
     /// The `txin` fields: `prevout`, `nSequence`, `scriptSigLen`, `scriptSig`, `scriptWitnessLen`,
     /// and `scriptWitness` should all be included.
     pub weight: u32,
-    /// The total number of inputs; so we can calculate extra `varint` weight due to `vin` length changes.
+    /// The total number of inputs
     pub input_count: usize,
     /// Specifies the relative creation sequence for this group, used only for FIFO selection.
     ///
@@ -28,7 +29,7 @@ pub struct CoinSelectionOpt {
     /// The feerate we should try and achieve in sats per weight unit.
     pub target_feerate: f32,
     /// The feerate
-    pub long_term_feerate: Option<f32>, // TODO: Maybe out of scope? (waste)
+    pub long_term_feerate: Option<f32>,
     /// The minimum absolute fee. I.e., needed for RBF.
     pub min_absolute_fee: u64,
 
@@ -40,11 +41,11 @@ pub struct CoinSelectionOpt {
     /// Weight of spending the change output in the future.
     pub change_cost: u64,
 
-    /// Estimate of cost of spending an input.
-    pub cost_per_input: u64,
+    /// Estimate of average weight of an input.
+    pub avg_input_weight: u32,
 
-    /// Estimate of cost of spending the output.
-    pub cost_per_output: u64,
+    /// Estimate of average weight of an output.
+    pub avg_output_weight: u32,
 
     /// Minimum value allowed for a change output.
     pub min_change_value: u64,

@@ -157,8 +157,8 @@ mod test {
             base_weight: 10,
             change_weight: 50,
             change_cost: 10,
-            cost_per_input: 20,
-            cost_per_output: 10,
+            avg_input_weight: 20,
+            avg_output_weight: 10,
             min_change_value: 500,
             excess_strategy: ExcessStrategy::ToChange,
         }

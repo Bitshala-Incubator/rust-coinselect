@@ -120,8 +120,8 @@ mod test {
             base_weight,
             change_weight: 50,
             change_cost: 10,
-            cost_per_input: 20,
-            cost_per_output: 10,
+            avg_input_weight: 20,
+            avg_output_weight: 10,
             min_change_value,
             excess_strategy: ExcessStrategy::ToChange,
         }
@@ -449,8 +449,8 @@ mod test {
                 base_weight: 10,
                 change_weight: 50,
                 change_cost: 10,
-                cost_per_input: 20,
-                cost_per_output: 10,
+                avg_input_weight: 20,
+                avg_output_weight: 10,
                 min_change_value: (0.05 * CENT).round() as u64, // Setting minimum change value = 0.05 CENT. This will make the algorithm to avoid creating small change.
                 excess_strategy: ExcessStrategy::ToChange,
             };
