@@ -21,21 +21,31 @@ pub struct OutputGroup {
     pub creation_sequence: Option<u32>,
 }
 
+/// Options required to compute fees and waste metric.
 #[derive(Debug, Clone, Copy)]
 pub struct CoinSelectionOpt {
     /// The value we need to select.
     pub target_value: u64,
 
-    /// The feerate we should try and achieve in sats per weight unit.
+    /// The target feerate we should try and achieve in sats per weight unit.
     pub target_feerate: f32,
-    /// The feerate
+
+    /// The long term feerate affects how the [`WasteMetric`] is computed.
+    /// If `target_feerate < long_term_feerate` then it's a good time to spend meaning less waste.
     pub long_term_feerate: Option<f32>,
+
     /// The minimum absolute fee. I.e., needed for RBF.
     pub min_absolute_fee: u64,
 
-    /// The weight of the template transaction, including fixed fields and outputs.
+    /// Weights of data in transaction other than the list of inputs that would be selected.
+    /// 
+    /// This includes weight of the header, total weight out outputs, weight of fields used
+    /// to represent number number of inputs and number outputs, witness etc.,
     pub base_weight: u32,
+
     /// Additional weight if we include the change output.
+    /// 
+    /// Used in weight metric computation.
     pub change_weight: u32,
 
     /// Weight of spending the change output in the future.
@@ -47,7 +57,7 @@ pub struct CoinSelectionOpt {
     /// Estimate of average weight of an output.
     pub avg_output_weight: u32,
 
-    /// Minimum value allowed for a change output.
+    /// Minimum value allowed for a change output to avoid dusts.
     pub min_change_value: u64,
 
     /// Strategy to use the excess value other than fee and target
