@@ -2,11 +2,23 @@ use rand::{rngs::ThreadRng, thread_rng, Rng};
 
 use crate::{
     types::{
-        CoinSelectionOpt, MatchParameters, OutputGroup, SelectionError, SelectionOutput,
+        CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutput,
         WasteMetric,
     },
     utils::{calculate_fee, calculate_waste, effective_value},
 };
+
+/// Struct for three arguments : target_for_match, match_range and target_feerate
+///
+/// Wrapped in a struct or else input for fn bnb takes too many arguments - 9/7
+/// Leading to usage of stack instead of registers - https://users.rust-lang.org/t/avoiding-too-many-arguments-passing-to-a-function/103581
+/// Fit in : 1 XMM register, 1 GPR
+#[derive(Debug)]
+struct MatchParameters {
+    pub target_for_match: u64,
+    pub match_range: u64,
+    pub target_feerate: f32,
+}
 
 /// Perform Coinselection via Branch And Bound algorithm.
 pub fn select_coin_bnb(
