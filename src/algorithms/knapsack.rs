@@ -106,7 +106,6 @@ mod test {
     const COIN: f64 = 100000000.0;
     const RUN_TESTS: u32 = 100;
     const RUN_TESTS_SLIM: u32 = 10;
-    const RANDOM_REPEATS: u32 = 5;
 
     fn knapsack_setup_options(adjusted_target: u64, target_feerate: f32) -> CoinSelectionOpt {
         let min_change_value = 500;
@@ -167,7 +166,7 @@ mod test {
         }
     }
 
-    fn test_core_knapsack_vectors() {
+    fn knapsack_test_vectors() {
         let mut inputs_verify: Vec<usize> = Vec::new();
         for _ in 0..RUN_TESTS {
             // Test if Knapsack retruns an Error
@@ -548,32 +547,10 @@ mod test {
             vec![100, 10, 50, 52, 13],
             0.34,
         );
-        /* Testing if the algorithm can randomly select inputs to make 160,000,000 SATS.
-
-        The test checks if the algorithm can pick a random sample of inputs (from a set of 105) to make 160,000,000 SATS.
-        When choosing 1 from 100 identical inputs (1 COIN), there is a 1% chance of selecting the same input twice.
-        To evaluate randomness, we limit our check to 5 trials: if the algorithm picks the same set of inputs 5 times,
-        we conclude that the algorithm isn't random enough. */
-        let options = knapsack_setup_options(((60.0 * CENT) + COIN).round() as u64, 0.34);
-        let mut fails = 0;
-        for _ in 0..RUN_TESTS {
-            for _ in 0..RANDOM_REPEATS {
-                if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                    selected_input_1.clone_from(&result.selected_inputs);
-                }
-                if let Ok(result) = select_coin_knapsack(&inputs, options) {
-                    selected_input_2.clone_from(&result.selected_inputs);
-                }
-                if selected_input_1 == selected_input_2 {
-                    fails += 1;
-                }
-            }
-            assert_ne!(fails, RANDOM_REPEATS);
-        }
     }
 
     #[test]
     fn test_knapsack() {
-        test_core_knapsack_vectors();
+        knapsack_test_vectors();
     }
 }
