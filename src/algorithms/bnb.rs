@@ -1,10 +1,7 @@
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 
 use crate::{
-    types::{
-        CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutput,
-        WasteMetric,
-    },
+    types::{CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutput, WasteMetric},
     utils::{calculate_fee, calculate_waste, effective_value},
 };
 
@@ -36,7 +33,8 @@ pub fn select_coin_bnb(
     let cost_per_output = calculate_fee(options.avg_output_weight, options.target_feerate);
 
     let match_parameters = MatchParameters {
-        target_for_match: options.target_value + calculate_fee(options.base_weight, options.target_feerate),
+        target_for_match: options.target_value
+            + calculate_fee(options.base_weight, options.target_feerate),
         match_range: cost_per_input + cost_per_output,
         target_feerate: options.target_feerate,
     };

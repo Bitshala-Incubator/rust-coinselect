@@ -38,13 +38,13 @@ pub struct CoinSelectionOpt {
     pub min_absolute_fee: u64,
 
     /// Weights of data in transaction other than the list of inputs that would be selected.
-    /// 
+    ///
     /// This includes weight of the header, total weight out outputs, weight of fields used
     /// to represent number number of inputs and number outputs, witness etc.,
     pub base_weight: u32,
 
     /// Additional weight if we include the change output.
-    /// 
+    ///
     /// Used in weight metric computation.
     pub change_weight: u32,
 
