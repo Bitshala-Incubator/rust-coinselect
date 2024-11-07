@@ -2,12 +2,17 @@
 name = "rust-coinselect"
 version = "0.1.0"
 edition = "2021"
+description = "UTXO selection library for Bitcoin"
+readme = "README.md"
+homepage = ""
+documentation = "https://docs.rs/rust-coinselect"
+keywords = ["UTXO", "coinselect"]
+license = "MIT"
+repository = "https://github.com/Bitshala-Incubator/rust-coinselect"
 
 [dependencies]
 rand = "0.8.5"
 
-[workspace]
-members = ["examples/*"]
 
 #Empty default feature set, (helpful to generalise in github actions)
 [features]
