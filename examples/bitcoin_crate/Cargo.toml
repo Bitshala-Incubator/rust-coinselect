@@ -1,0 +1,14 @@
+[package]
+name = "coinselect-example-bitcoin"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rust-coinselect = {path = "../.."}
+rand = "0.8.5"
+bitcoin = "0.32.3"
+itertools = "0.13.0"
+serde = "1.0.210"
+serde_derive = "1.0.210"
+serde_json = "1.0.128"
+rand_chacha = "0.3"
