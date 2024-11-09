@@ -74,7 +74,7 @@ pub enum SelectionError {
 /// In high fee rate environments, selecting fewer inputs reduces transaction fees.
 /// In low fee rate environments, selecting more inputs reduces overall fees.
 /// It compares various selection algorithms to find the most optimized solution, represented by the lowest [WasteMetric] value.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct WasteMetric(pub u64);
 
 /// The result of selection algorithm.
