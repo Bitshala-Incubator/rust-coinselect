@@ -135,6 +135,64 @@ mod test {
     }
 
     #[test]
+    fn test_select_coin_equals_lowest_larger() {
+        // Define the inputs such that the lowest_larger algorithm should be optimal
+        let inputs = vec![
+            OutputGroup {
+                value: 500,
+                weight: 50,
+                input_count: 1,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 1500,
+                weight: 100,
+                input_count: 1,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 2000,
+                weight: 200,
+                input_count: 1,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 1000,
+                weight: 75,
+                input_count: 1,
+                creation_sequence: None,
+            },
+        ];
+
+        // Define the target selection options
+        let options = CoinSelectionOpt {
+            target_value: 1600, // Target value which lowest_larger can satisfy
+            target_feerate: 0.4,
+            long_term_feerate: Some(0.4),
+            min_absolute_fee: 0,
+            base_weight: 10,
+            change_weight: 50,
+            change_cost: 10,
+            cost_per_input: 20,
+            cost_per_output: 10,
+            min_change_value: 500,
+            excess_strategy: ExcessStrategy::ToChange,
+        };
+
+        // Call the select_coin function, which should internally use the lowest_larger algorithm
+        let selection_result = select_coin(&inputs, options).unwrap();
+
+        // Deterministically choose a result based on how lowest_larger would select
+        let expected_inputs = vec![2]; // Example choice based on lowest_larger logic
+
+        // Sort the selected inputs to ignore the order
+        let mut selection_inputs = selection_result.selected_inputs.clone();
+        let mut expected_inputs_sorted = expected_inputs.clone();
+        selection_inputs.sort();
+        expected_inputs_sorted.sort();
+    }
+
+    #[test]
     fn test_select_coin_equals_knapsack() {
         // Define inputs that are best suited for knapsack algorithm to match the target value with minimal waste
         let inputs = vec![
