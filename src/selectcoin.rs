@@ -3,9 +3,7 @@ use crate::{
         bnb::select_coin_bnb, fifo::select_coin_fifo, knapsack::select_coin_knapsack,
         lowestlarger::select_coin_lowestlarger, srd::select_coin_srd,
     },
-    types::{
-        CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutput,
-    },
+    types::{CoinSelectionOpt, OutputGroup, SelectionError, SelectionOutput},
 };
 use std::{
     sync::{Arc, Mutex},
