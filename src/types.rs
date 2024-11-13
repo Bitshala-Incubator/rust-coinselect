@@ -2,6 +2,7 @@
 ///
 /// A [`OutputGroup`] can be a single UTXO or a group that should be spent together.
 /// For privacy reasons it might be a good choice to spend a group of UTXOs together.
+/// In the UTXO model the output of a transaction is used as the input for the new transaction and hence the name [`OutputGroup`]
 /// The library user must craft this structure correctly, as incorrect representation can lead to incorrect selection results.
 #[derive(Debug, Clone, Copy)]
 pub struct OutputGroup {
@@ -97,18 +98,8 @@ pub struct SelectionOutput {
     pub waste: WasteMetric,
 }
 
-/// Perform Coinselection via Knapsack solver.
+/// EffectiveValue type alias
 pub type EffectiveValue = u64;
+
+/// Weight type alias
 pub type Weight = u32;
-
-/// The global coin selection API that applies all algorithms and produces the result with the lowest [WasteMetric].
-///
-/// At least one selection solution should be found.
-pub type CoinSelectionFn =
-    fn(&[OutputGroup], CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
-
-#[derive(Debug)]
-pub struct SharedState {
-    pub result: Result<SelectionOutput, SelectionError>,
-    pub any_success: bool,
-}
