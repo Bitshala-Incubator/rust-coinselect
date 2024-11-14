@@ -8,7 +8,7 @@ use crate::{
 /// Returns `NoSolutionFound` if no solution exists.
 pub fn select_coin_lowestlarger(
     inputs: &[OutputGroup],
-    options: CoinSelectionOpt,
+    options: &CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     let mut accumulated_value: u64 = 0;
     let mut accumulated_weight: u32 = 0;
@@ -51,7 +51,7 @@ pub fn select_coin_lowestlarger(
         Err(SelectionError::InsufficientFunds)
     } else {
         let waste: u64 = calculate_waste(
-            &options,
+            options,
             accumulated_value,
             accumulated_weight,
             estimated_fees,
@@ -168,7 +168,7 @@ mod test {
     fn test_lowestlarger_successful() {
         let inputs = setup_lowestlarger_output_groups();
         let options = setup_options(20000);
-        let result = select_coin_lowestlarger(&inputs, options);
+        let result = select_coin_lowestlarger(&inputs, &options);
         assert!(result.is_ok());
         let selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
@@ -178,7 +178,7 @@ mod test {
     fn test_lowestlarger_insufficient() {
         let inputs = setup_lowestlarger_output_groups();
         let options = setup_options(40000);
-        let result = select_coin_lowestlarger(&inputs, options);
+        let result = select_coin_lowestlarger(&inputs, &options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
 }

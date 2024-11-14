@@ -14,7 +14,7 @@ use std::{
 ///
 /// At least one selection solution should be found.
 type CoinSelectionFn =
-    fn(&[OutputGroup], CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
+    fn(&[OutputGroup], &CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
 
 #[derive(Debug)]
 struct SharedState {
@@ -38,37 +38,31 @@ pub fn select_coin(
         result: Err(SelectionError::NoSolutionFound),
         any_success: false,
     }));
-    let mut handles = vec![];
     for &algorithm in &algorithms {
         let best_result_clone = Arc::clone(&best_result);
-        let inputs_clone = inputs.to_vec();
-        let options_clone = options;
-        let handle = thread::spawn(move || {
-            let result = algorithm(&inputs_clone, options_clone);
-            let mut state = best_result_clone.lock().unwrap();
-            match result {
-                Ok(selection_output) => {
-                    if match &state.result {
-                        Ok(current_best) => selection_output.waste.0 < current_best.waste.0,
-                        Err(_) => true,
-                    } {
-                        state.result = Ok(selection_output);
-                        state.any_success = true;
+        thread::scope(|s| {
+            s.spawn(|| {
+                let result = algorithm(inputs, &options);
+                let mut state = best_result_clone.lock().unwrap();
+                match result {
+                    Ok(selection_output) => {
+                        if match &state.result {
+                            Ok(current_best) => selection_output.waste.0 < current_best.waste.0,
+                            Err(_) => true,
+                        } {
+                            state.result = Ok(selection_output);
+                            state.any_success = true;
+                        }
+                    }
+                    Err(e) => {
+                        if e == SelectionError::InsufficientFunds && !state.any_success {
+                            // Only set to InsufficientFunds if no algorithm succeeded
+                            state.result = Err(SelectionError::InsufficientFunds);
+                        }
                     }
                 }
-                Err(e) => {
-                    if e == SelectionError::InsufficientFunds && !state.any_success {
-                        // Only set to InsufficientFunds if no algorithm succeeded
-                        state.result = Err(SelectionError::InsufficientFunds);
-                    }
-                }
-            }
+            });
         });
-        handles.push(handle);
-    }
-    // Wait for all threads to finish
-    for handle in handles {
-        handle.join().expect("Thread panicked");
     }
     // Extract the result from the shared state
     Arc::try_unwrap(best_result)

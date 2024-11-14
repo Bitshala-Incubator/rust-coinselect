@@ -16,7 +16,7 @@ struct MatchParameters {
 /// Perform Coinselection via Branch And Bound algorithm.
 pub fn select_coin_bnb(
     inputs: &[OutputGroup],
-    options: CoinSelectionOpt,
+    options: &CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     let mut selected_inputs: Vec<usize> = vec![];
 
@@ -35,11 +35,7 @@ pub fn select_coin_bnb(
         target_feerate: options.target_feerate,
     };
 
-    let mut sorted_inputs: Vec<(usize, OutputGroup)> = inputs
-        .iter()
-        .enumerate()
-        .map(|(index, input)| (index, *input))
-        .collect();
+    let mut sorted_inputs: Vec<(usize, &OutputGroup)> = inputs.iter().enumerate().collect();
     sorted_inputs.sort_by_key(|(_, input)| std::cmp::Reverse(input.value));
 
     let bnb_selected_coin = bnb(
@@ -61,7 +57,7 @@ pub fn select_coin_bnb(
                 .fold(0, |acc, &i| acc + inputs[i].weight);
             let estimated_fee = 0;
             let waste = calculate_waste(
-                &options,
+                options,
                 accumulated_value,
                 accumulated_weight,
                 estimated_fee,
@@ -80,7 +76,7 @@ pub fn select_coin_bnb(
 ///
 /// changing the selected_inputs : &[usize] -> &mut Vec<usize>
 fn bnb(
-    inputs_in_desc_value: &[(usize, OutputGroup)],
+    inputs_in_desc_value: &[(usize, &OutputGroup)],
     selected_inputs: &mut Vec<usize>,
     acc_eff_value: u64,
     depth: usize,
@@ -108,7 +104,7 @@ fn bnb(
         // first include then omit
         let new_effective_value = acc_eff_value
             + effective_value(
-                &inputs_in_desc_value[depth].1,
+                inputs_in_desc_value[depth].1,
                 match_parameters.target_feerate,
             );
         selected_inputs.push(inputs_in_desc_value[depth].0);
@@ -150,7 +146,7 @@ fn bnb(
             None => {
                 let new_effective_value = acc_eff_value
                     + effective_value(
-                        &inputs_in_desc_value[depth].1,
+                        inputs_in_desc_value[depth].1,
                         match_parameters.target_feerate,
                     );
                 selected_inputs.push(inputs_in_desc_value[depth].0);
@@ -276,7 +272,7 @@ mod test {
 
         // Adjust the target value to ensure it tests for multiple valid solutions
         let opt = bnb_setup_options(5730);
-        let ans = select_coin_bnb(&values, opt);
+        let ans = select_coin_bnb(&values, &opt);
         if let Ok(selection_output) = ans {
             let expected_solution = vec![7, 5, 1];
             assert_eq!(
@@ -294,7 +290,7 @@ mod test {
         let total_input_value: u64 = inputs.iter().map(|input| input.value).sum();
         let impossible_target = total_input_value + 1000;
         let options = bnb_setup_options(impossible_target);
-        let result = select_coin_bnb(&inputs, options);
+        let result = select_coin_bnb(&inputs, &options);
         assert!(
             matches!(result, Err(SelectionError::NoSolutionFound)),
             "Expected NoSolutionFound error, got {:?}",
