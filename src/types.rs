@@ -1,8 +1,10 @@
 /// Represents an input candidate for Coinselection, either as a single UTXO or a group of UTXOs.
 ///
 /// A [`OutputGroup`] can be a single UTXO or a group that should be spent together.
+/// For privacy reasons it might be a good choice to spend a group of UTXOs together.
+/// In the UTXO model the output of a transaction is used as the input for the new transaction and hence the name [`OutputGroup`]
 /// The library user must craft this structure correctly, as incorrect representation can lead to incorrect selection results.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct OutputGroup {
     /// Total value of the UTXO(s) that this [`WeightedValue`] represents.
     pub value: u64,
@@ -11,7 +13,7 @@ pub struct OutputGroup {
     /// The `txin` fields: `prevout`, `nSequence`, `scriptSigLen`, `scriptSig`, `scriptWitnessLen`,
     /// and `scriptWitness` should all be included.
     pub weight: u32,
-    /// The total number of inputs; so we can calculate extra `varint` weight due to `vin` length changes.
+    /// The total number of inputs
     pub input_count: usize,
     /// Specifies the relative creation sequence for this group, used only for FIFO selection.
     ///
@@ -20,33 +22,43 @@ pub struct OutputGroup {
     pub creation_sequence: Option<u32>,
 }
 
-#[derive(Debug, Clone, Copy)]
+/// Options required to compute fees and waste metric.
+#[derive(Debug, Clone)]
 pub struct CoinSelectionOpt {
     /// The value we need to select.
     pub target_value: u64,
 
-    /// The feerate we should try and achieve in sats per weight unit.
+    /// The target feerate we should try and achieve in sats per weight unit.
     pub target_feerate: f32,
-    /// The feerate
-    pub long_term_feerate: Option<f32>, // TODO: Maybe out of scope? (waste)
+
+    /// The long term feerate affects how the [`WasteMetric`] is computed.
+    /// If `target_feerate < long_term_feerate` then it's a good time to spend meaning less waste.
+    pub long_term_feerate: Option<f32>,
+
     /// The minimum absolute fee. I.e., needed for RBF.
     pub min_absolute_fee: u64,
 
-    /// The weight of the template transaction, including fixed fields and outputs.
+    /// Weights of data in transaction other than the list of inputs that would be selected.
+    ///
+    /// This includes weight of the header, total weight out outputs, weight of fields used
+    /// to represent number number of inputs and number outputs, witness etc.,
     pub base_weight: u32,
+
     /// Additional weight if we include the change output.
+    ///
+    /// Used in weight metric computation.
     pub change_weight: u32,
 
     /// Weight of spending the change output in the future.
     pub change_cost: u64,
 
-    /// Estimate of cost of spending an input.
-    pub cost_per_input: u64,
+    /// Estimate of average weight of an input.
+    pub avg_input_weight: u32,
 
-    /// Estimate of cost of spending the output.
-    pub cost_per_output: u64,
+    /// Estimate of average weight of an output.
+    pub avg_output_weight: u32,
 
-    /// Minimum value allowed for a change output.
+    /// Minimum value allowed for a change output to avoid dusts.
     pub min_change_value: u64,
 
     /// Strategy to use the excess value other than fee and target
@@ -54,7 +66,7 @@ pub struct CoinSelectionOpt {
 }
 
 /// Strategy to decide what to do with the excess amount.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExcessStrategy {
     ToFee,
     ToRecipient,
@@ -86,30 +98,8 @@ pub struct SelectionOutput {
     pub waste: WasteMetric,
 }
 
-/// Perform Coinselection via Knapsack solver.
+/// EffectiveValue type alias
 pub type EffectiveValue = u64;
+
+/// Weight type alias
 pub type Weight = u32;
-
-/// The global coin selection API that applies all algorithms and produces the result with the lowest [WasteMetric].
-///
-/// At least one selection solution should be found.
-pub type CoinSelectionFn =
-    fn(&[OutputGroup], CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
-
-#[derive(Debug)]
-pub struct SharedState {
-    pub result: Result<SelectionOutput, SelectionError>,
-    pub any_success: bool,
-}
-
-/// Struct for three arguments : target_for_match, match_range and target_feerate
-///
-/// Wrapped in a struct or else input for fn bnb takes too many arguments - 9/7
-/// Leading to usage of stack instead of registers - https://users.rust-lang.org/t/avoiding-too-many-arguments-passing-to-a-function/103581
-/// Fit in : 1 XMM register, 1 GPR
-#[derive(Debug)]
-pub struct MatchParameters {
-    pub target_for_match: u64,
-    pub match_range: u64,
-    pub target_feerate: f32,
-}

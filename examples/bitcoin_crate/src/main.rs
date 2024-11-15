@@ -218,7 +218,7 @@ fn perform_select_coin(utxos: Vec<OutputGroup>, coin_select_options_vec: Vec<Coi
             "\nSelecting UTXOs to total: {:?} sats",
             coin_select_options.target_value
         );
-        match select_coin(&utxos, *coin_select_options) {
+        match select_coin(&utxos, &coin_select_options) {
             Ok(selectionoutput) => {
                 println!(
                     "Selected utxo index and waste metrics are: {:?}",
