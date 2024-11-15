@@ -14,7 +14,7 @@ use std::{
 ///
 /// At least one selection solution should be found.
 type CoinSelectionFn =
-    fn(&[OutputGroup], CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
+    fn(&[OutputGroup], &CoinSelectionOpt) -> Result<SelectionOutput, SelectionError>;
 
 #[derive(Debug)]
 struct SharedState {
@@ -24,7 +24,7 @@ struct SharedState {
 
 pub fn select_coin(
     inputs: &[OutputGroup],
-    options: CoinSelectionOpt,
+    options: &CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     let algorithms: Vec<CoinSelectionFn> = vec![
         select_coin_bnb,
@@ -38,37 +38,31 @@ pub fn select_coin(
         result: Err(SelectionError::NoSolutionFound),
         any_success: false,
     }));
-    let mut handles = vec![];
     for &algorithm in &algorithms {
         let best_result_clone = Arc::clone(&best_result);
-        let inputs_clone = inputs.to_vec();
-        let options_clone = options;
-        let handle = thread::spawn(move || {
-            let result = algorithm(&inputs_clone, options_clone);
-            let mut state = best_result_clone.lock().unwrap();
-            match result {
-                Ok(selection_output) => {
-                    if match &state.result {
-                        Ok(current_best) => selection_output.waste.0 < current_best.waste.0,
-                        Err(_) => true,
-                    } {
-                        state.result = Ok(selection_output);
-                        state.any_success = true;
+        thread::scope(|s| {
+            s.spawn(|| {
+                let result = algorithm(inputs, options);
+                let mut state = best_result_clone.lock().unwrap();
+                match result {
+                    Ok(selection_output) => {
+                        if match &state.result {
+                            Ok(current_best) => selection_output.waste.0 < current_best.waste.0,
+                            Err(_) => true,
+                        } {
+                            state.result = Ok(selection_output);
+                            state.any_success = true;
+                        }
+                    }
+                    Err(e) => {
+                        if e == SelectionError::InsufficientFunds && !state.any_success {
+                            // Only set to InsufficientFunds if no algorithm succeeded
+                            state.result = Err(SelectionError::InsufficientFunds);
+                        }
                     }
                 }
-                Err(e) => {
-                    if e == SelectionError::InsufficientFunds && !state.any_success {
-                        // Only set to InsufficientFunds if no algorithm succeeded
-                        state.result = Err(SelectionError::InsufficientFunds);
-                    }
-                }
-            }
+            });
         });
-        handles.push(handle);
-    }
-    // Wait for all threads to finish
-    for handle in handles {
-        handle.join().expect("Thread panicked");
     }
     // Extract the result from the shared state
     Arc::try_unwrap(best_result)
@@ -129,7 +123,7 @@ mod test {
     fn test_select_coin_successful() {
         let inputs = setup_basic_output_groups();
         let options = setup_options(1500);
-        let result = select_coin(&inputs, options);
+        let result = select_coin(&inputs, &options);
         assert!(result.is_ok());
         let selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
@@ -139,7 +133,7 @@ mod test {
     fn test_select_coin_insufficient_funds() {
         let inputs = setup_basic_output_groups();
         let options = setup_options(7000); // Set a target value higher than the sum of all inputs
-        let result = select_coin(&inputs, options);
+        let result = select_coin(&inputs, &options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
 
@@ -189,7 +183,7 @@ mod test {
         };
 
         // Call the select_coin function, which should internally use the lowest_larger algorithm
-        let selection_result = select_coin(&inputs, options).unwrap();
+        let selection_result = select_coin(&inputs, &options).unwrap();
 
         // Deterministically choose a result based on how lowest_larger would select
         let expected_inputs = vec![2]; // Example choice based on lowest_larger logic
@@ -252,7 +246,7 @@ mod test {
             excess_strategy: ExcessStrategy::ToChange,
         };
 
-        let selection_result = select_coin(&inputs, options).unwrap();
+        let selection_result = select_coin(&inputs, &options).unwrap();
 
         // Deterministically choose a result with justification
         // Here, we assume that the `select_coin` function internally chooses the most efficient set

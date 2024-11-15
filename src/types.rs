@@ -4,7 +4,7 @@
 /// For privacy reasons it might be a good choice to spend a group of UTXOs together.
 /// In the UTXO model the output of a transaction is used as the input for the new transaction and hence the name [`OutputGroup`]
 /// The library user must craft this structure correctly, as incorrect representation can lead to incorrect selection results.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct OutputGroup {
     /// Total value of the UTXO(s) that this [`WeightedValue`] represents.
     pub value: u64,
@@ -23,7 +23,7 @@ pub struct OutputGroup {
 }
 
 /// Options required to compute fees and waste metric.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct CoinSelectionOpt {
     /// The value we need to select.
     pub target_value: u64,
@@ -66,7 +66,7 @@ pub struct CoinSelectionOpt {
 }
 
 /// Strategy to decide what to do with the excess amount.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExcessStrategy {
     ToFee,
     ToRecipient,

@@ -8,7 +8,7 @@ use crate::{
 /// Returns `NoSolutionFound` if no solution is found.
 pub fn select_coin_fifo(
     inputs: &[OutputGroup],
-    options: CoinSelectionOpt,
+    options: &CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     let mut accumulated_value: u64 = 0;
     let mut accumulated_weight: u32 = 0;
@@ -53,7 +53,7 @@ pub fn select_coin_fifo(
         Err(SelectionError::InsufficientFunds)
     } else {
         let waste: u64 = calculate_waste(
-            &options,
+            options,
             accumulated_value,
             accumulated_weight,
             estimated_fees,
@@ -143,14 +143,14 @@ mod test {
     fn test_successful_selection() {
         let mut inputs = setup_basic_output_groups();
         let mut options = setup_options(2500);
-        let mut result = select_coin_srd(&inputs, options);
+        let mut result = select_coin_srd(&inputs, &options);
         assert!(result.is_ok());
         let mut selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
 
         inputs = setup_output_groups_withsequence();
         options = setup_options(500);
-        result = select_coin_fifo(&inputs, options);
+        result = select_coin_fifo(&inputs, &options);
         assert!(result.is_ok());
         selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
@@ -159,7 +159,7 @@ mod test {
     fn test_insufficient_funds() {
         let inputs = setup_basic_output_groups();
         let options = setup_options(7000); // Set a target value higher than the sum of all inputs
-        let result = select_coin_srd(&inputs, options);
+        let result = select_coin_srd(&inputs, &options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
 
