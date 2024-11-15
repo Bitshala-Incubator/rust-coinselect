@@ -165,30 +165,36 @@ fn create_outputgroup(
 }
 
 fn create_select_options() -> Result<Vec<CoinSelectionOpt>, Box<dyn std::error::Error>> {
-    let mut rng = rand::thread_rng();
     let mut coin_select_options_vec: Vec<CoinSelectionOpt> = Vec::new();
-    // Creating 5 different options for coin selection
-    for _ in 0..5 {
-        // Random selection of Excess Strategy
-        let excess_strategy = match rng.gen_range(0..3) {
+    let target_values = [50_000, 100_000, 200_000, 500_000, 1_000_000];
+    let feerates = [1.0, 2.0, 3.0, 5.0, 10.0];
+    
+    for i in 0..5 {
+        let excess_strategy = match i % 3 {
             0 => ExcessStrategy::ToChange,
             1 => ExcessStrategy::ToFee,
             2 => ExcessStrategy::ToRecipient,
             _ => unreachable!(),
         };
+        
+        // Account for var int fields
+        // 4 (version) + 4 (locktime) + 1 (input varint count) + 1 (output varint count) = 10 bytes
+        // 10 + 4 * 2 (Adding another 4 bytes each to cover variations due to different types of varint encodings)
+        let base_weight = 18 * 4;   // Verify it.
+        
         coin_select_options_vec.push(CoinSelectionOpt {
-            target_value: rng.gen_range(40000..5000000000i64) as u64,
-            target_feerate: rng.gen_range(1.0..5.0) as f32,
-            long_term_feerate: Some(rng.gen_range(1..10) as f32),
-            min_absolute_fee: rng.gen_range(1..20) as u64,
-            base_weight: rng.gen_range(1..30) as u32,
-            change_weight: rng.gen_range(5..30) as u32,
-            change_cost: rng.gen_range(1..20) as u64,
-            cost_per_input: rng.gen_range(1..10) as u64,
-            cost_per_output: rng.gen_range(1..10) as u64,
-            min_change_value: rng.gen_range(100..1000) as u64,
+            target_value: target_values[i],
+            target_feerate: feerates[i],
+            long_term_feerate: Some(feerates[i]),
+            min_absolute_fee: 1000 * (i + 1) as u64,
+            base_weight,
+            change_weight: 34,
+            change_cost: 5 + i as u64,
+            cost_per_input: 148,
+            cost_per_output: 34,
+            min_change_value: 100,
             excess_strategy,
-        })
+        });
     }
     Ok(coin_select_options_vec)
 }
