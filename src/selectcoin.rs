@@ -24,7 +24,7 @@ struct SharedState {
 
 pub fn select_coin(
     inputs: &[OutputGroup],
-    options: CoinSelectionOpt,
+    options: &CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     let algorithms: Vec<CoinSelectionFn> = vec![
         select_coin_bnb,
@@ -42,7 +42,7 @@ pub fn select_coin(
         let best_result_clone = Arc::clone(&best_result);
         thread::scope(|s| {
             s.spawn(|| {
-                let result = algorithm(inputs, &options);
+                let result = algorithm(inputs, options);
                 let mut state = best_result_clone.lock().unwrap();
                 match result {
                     Ok(selection_output) => {
@@ -123,7 +123,7 @@ mod test {
     fn test_select_coin_successful() {
         let inputs = setup_basic_output_groups();
         let options = setup_options(1500);
-        let result = select_coin(&inputs, options);
+        let result = select_coin(&inputs, &options);
         assert!(result.is_ok());
         let selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
@@ -133,7 +133,7 @@ mod test {
     fn test_select_coin_insufficient_funds() {
         let inputs = setup_basic_output_groups();
         let options = setup_options(7000); // Set a target value higher than the sum of all inputs
-        let result = select_coin(&inputs, options);
+        let result = select_coin(&inputs, &options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
 
@@ -183,7 +183,7 @@ mod test {
         };
 
         // Call the select_coin function, which should internally use the lowest_larger algorithm
-        let selection_result = select_coin(&inputs, options).unwrap();
+        let selection_result = select_coin(&inputs, &options).unwrap();
 
         // Deterministically choose a result based on how lowest_larger would select
         let expected_inputs = vec![2]; // Example choice based on lowest_larger logic
@@ -246,7 +246,7 @@ mod test {
             excess_strategy: ExcessStrategy::ToChange,
         };
 
-        let selection_result = select_coin(&inputs, options).unwrap();
+        let selection_result = select_coin(&inputs, &options).unwrap();
 
         // Deterministically choose a result with justification
         // Here, we assume that the `select_coin` function internally chooses the most efficient set
