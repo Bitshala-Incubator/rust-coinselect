@@ -60,7 +60,10 @@ fn json_to_txin(filedata: &str) -> Result<Vec<TxIn>, Box<dyn std::error::Error>>
             // Converting from slice of bytes to Witness object
             let witnessdata = Witness::from_slice(&witness);
             Ok(TxIn {
-                previous_output: OutPoint { txid, vout: tx_inp.vout },
+                previous_output: OutPoint {
+                    txid,
+                    vout: tx_inp.vout,
+                },
                 script_sig: script_signature,
                 sequence: nsequence,
                 witness: witnessdata,
@@ -101,15 +104,30 @@ fn compose_transactions(inputs: Vec<TxIn>, outputs: Vec<TxOut>) -> Vec<Transacti
     // Generate combinations of inputs and outputs and create transactions using them
     vec![
         // UTXO 1 : Two inputs and one output
-        create_transaction(inputs.iter().take(2).cloned().collect(), vec![outputs[2].clone()]),
+        create_transaction(
+            inputs.iter().take(2).cloned().collect(),
+            vec![outputs[2].clone()],
+        ),
         // UTXO 2 : Three inputs and three outputs
-        create_transaction(inputs.iter().skip(2).take(3).cloned().collect(), outputs.iter().skip(3).take(3).cloned().collect()),
+        create_transaction(
+            inputs.iter().skip(2).take(3).cloned().collect(),
+            outputs.iter().skip(3).take(3).cloned().collect(),
+        ),
         // UTXO 3: Five inputs and five outputs
-        create_transaction(inputs.iter().take(5).cloned().collect(), outputs.iter().skip(1).take(5).cloned().collect()),
+        create_transaction(
+            inputs.iter().take(5).cloned().collect(),
+            outputs.iter().skip(1).take(5).cloned().collect(),
+        ),
         // UTXO 4: One input and 7 outputs
-        create_transaction(vec![inputs[5].clone()], outputs.iter().take(7).cloned().collect()),
+        create_transaction(
+            vec![inputs[5].clone()],
+            outputs.iter().take(7).cloned().collect(),
+        ),
         // UTXO 5: Two inputs and one output
-        create_transaction(inputs.iter().skip(4).take(2).cloned().collect(), vec![outputs[6].clone()]),
+        create_transaction(
+            inputs.iter().skip(4).take(2).cloned().collect(),
+            vec![outputs[6].clone()],
+        ),
     ]
 }
 
@@ -139,7 +157,7 @@ fn create_select_options() -> Vec<CoinSelectionOpt> {
                 _ => unreachable!(),
             };
 
-            // The size of a transaction in bytes mostly depends on how many inputs and outputs are in the transaction. 
+            // The size of a transaction in bytes mostly depends on how many inputs and outputs are in the transaction.
             // Here are the average sizes for typical transactions (with P2WPKH locking scripts on the outputs):
 
             //     Inputs: 1, Outputs: 1 = 141 bytes
@@ -149,9 +167,9 @@ fn create_select_options() -> Vec<CoinSelectionOpt> {
 
             // The more inputs and outputs there are in a transaction, the bigger it gets.
             // There is no limit to how big a transaction can be in terms of bytes, other than the fact that it needs to be able to fit inside a block.
-            // Every transaction has a weight measurement. This measurement was introduced in the segregated witness upgrade. 
+            // Every transaction has a weight measurement. This measurement was introduced in the segregated witness upgrade.
             // A transaction's weight is calculated by multiplying the size (in bytes) of different parts of the transaction by either 4 or 1
-            let base_weight = 600;  
+            let base_weight = 600;
 
             CoinSelectionOpt {
                 target_value: target_values[i],
@@ -178,14 +196,23 @@ fn perform_select_coin(utxos: Vec<OutputGroup>, coin_select_options_vec: Vec<Coi
         println!("Value:{} sats", utxo.value);
         println!("Weight:{} bytes", utxo.weight);
         println!("No. of Inputs: {}", utxo.input_count);
-        println!("Creation Sequence: {:?}", utxo.creation_sequence.unwrap_or(0));
+        println!(
+            "Creation Sequence: {:?}",
+            utxo.creation_sequence.unwrap_or(0)
+        );
     }
 
     for coin_select_options in coin_select_options_vec.iter().take(5) {
-        println!("\nSelecting UTXOs to total: {:?} sats", coin_select_options.target_value);
+        println!(
+            "\nSelecting UTXOs to total: {:?} sats",
+            coin_select_options.target_value
+        );
         match select_coin(&utxos, coin_select_options) {
             Ok(selectionoutput) => {
-                println!("Selected utxo index and waste metrics are: {:?}", selectionoutput);
+                println!(
+                    "Selected utxo index and waste metrics are: {:?}",
+                    selectionoutput
+                );
             }
             Err(e) => {
                 println!("Error performing coin selection: {:?}", e);
@@ -197,7 +224,8 @@ fn perform_select_coin(utxos: Vec<OutputGroup>, coin_select_options_vec: Vec<Coi
 fn main() {
     // Read and parse inputs from JSON file
     let inputs = match read_json_file("examples/bitcoin_crate/txdata/txinp.json")
-        .and_then(|filedata| json_to_txin(&filedata)) {
+        .and_then(|filedata| json_to_txin(&filedata))
+    {
         Ok(txin_vec) => txin_vec,
         Err(e) => {
             println!("Error reading or parsing inputs: {:?}", e);
@@ -207,7 +235,8 @@ fn main() {
 
     // Read and parse outputs from JSON file
     let outputs = match read_json_file("examples/bitcoin_crate/txdata/txop.json")
-        .and_then(|filedata| json_to_txout(&filedata)) {
+        .and_then(|filedata| json_to_txout(&filedata))
+    {
         Ok(txout_vec) => txout_vec,
         Err(e) => {
             println!("Error reading or parsing outputs: {:?}", e);
