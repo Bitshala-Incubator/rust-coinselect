@@ -4,9 +4,9 @@ This guide will help you understand the technical scope of this library, and how
 
 ## Problem Statement
 
-Coin selection is the operation of selecting a subset of UTXOs from the wallet's UTXO set for transaction building. It is a fundamental and generic wallet management operation, and a standalone Rust library would be useful for various downstream wallet projects.
+Coin selection is the operation of selecting a subset of UTXOs from the wallet's UTXO set for constructing transactions. It is a fundamental and generic wallet management operation, and a standalone Rust library would be useful for various downstream wallet projects.
 
-Coin selection is a variant of the Subset-Sum problem and can be solved via various algorithms. Finding an optimized solution depends on various conflicting goals such as confirmation urgency, privacy, UTXO footprint management, etc.
+Coin selection is a variant of the Subset-Sum problem and can be solved via various algorithms. Finding an optimized solution depends on various conflicting goals such as minimizing transaction fees (fees per data byte) and confirmation time, avoid spending below dust limits, maximize privacy, and avoid bloating the network's UTXO set. 
 
 ## Background
 
