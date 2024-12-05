@@ -1,7 +1,7 @@
 /// Represents an input candidate for Coinselection, either as a single UTXO or a group of UTXOs.
 ///
 /// A [`OutputGroup`] can be a single UTXO or a group that should be spent together.
-/// Grouping UTXOs will downgrade the wallet's privacy heuristics. 
+/// Grouping UTXOs will downgrade the wallet's privacy heuristics.
 /// In the UTXO model the output of a transaction is used as the input for the new transaction and hence the name [`OutputGroup`]
 /// The library user must craft this structure correctly, as incorrect representation can lead to incorrect selection results.
 #[derive(Debug, Clone)]
@@ -31,12 +31,12 @@ pub struct CoinSelectionOpt {
     /// The target feerate we should try and achieve in sats per weight unit.
     pub target_feerate: f32,
 
-    /// The long term fee-rate is an estimate of the future transaction fee rate that a wallet might need to pay to spend its UTXOs. 
-    /// If the current fee rates are less than the long term fee rate, it is optimal to consolidate UTXOs to make the spend. 
+    /// The long term fee-rate is an estimate of the future transaction fee rate that a wallet might need to pay to spend its UTXOs.
+    /// If the current fee rates are less than the long term fee rate, it is optimal to consolidate UTXOs to make the spend.
     /// It affects how the [`WasteMetric`] is computed.
     pub long_term_feerate: Option<f32>,
 
-    /// Lowest possible transaction fee required to get a transaction included in a block 
+    /// Lowest possible transaction fee required to get a transaction included in a block
     pub min_absolute_fee: u64,
 
     /// Weights of data in transaction other than the list of inputs that would be selected.
@@ -49,7 +49,7 @@ pub struct CoinSelectionOpt {
     /// Used in weight metric computation.
     pub change_weight: u32,
 
-    /// Total cost associated with creating and later spending a change output in a transaction. 
+    /// Total cost associated with creating and later spending a change output in a transaction.
     /// This includes the transaction fees for both the current transaction (where the change is created) and the future transaction (where the change is spent)
     pub change_cost: u64,
 
