@@ -25,7 +25,7 @@ pub fn select_coin_bnb(
 
     let rng = &mut thread_rng();
 
-    let cost_per_input = calculate_fee(options.base_weight, options.target_feerate);
+    let cost_per_input = calculate_fee(options.avg_input_weight, options.target_feerate);
     let cost_per_output = calculate_fee(options.avg_output_weight, options.target_feerate);
 
     let match_parameters = MatchParameters {
