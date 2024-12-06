@@ -262,4 +262,67 @@ mod test {
         selection_inputs.sort();
         expected_inputs_sorted.sort();
     }
+
+    #[test]
+    fn test_select_coin_equals_bnb() {
+        let inputs = vec![
+            OutputGroup {
+                value: 150000,
+                weight: 100,
+                input_count: 1,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 250000,
+                weight: 100,
+                input_count: 1,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 300000,
+                weight: 100,
+                input_count: 1,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 100000,
+                weight: 100,
+                input_count: 1,
+                creation_sequence: None,
+            },
+            OutputGroup {
+                value: 50000,
+                weight: 100,
+                input_count: 1,
+                creation_sequence: None,
+            },
+        ];
+        let opt = CoinSelectionOpt {
+            target_value: 475000, // Set a target that knapsack can match efficiently
+            target_feerate: 1.0,
+            min_absolute_fee: 0,
+            base_weight: 100,
+            change_weight: 10,
+            change_cost: 20,
+            avg_input_weight: 10,
+            avg_output_weight: 10,
+            min_change_value: 400,
+            long_term_feerate: Some(0.5),
+            excess_strategy: ExcessStrategy::ToChange,
+        };
+        let ans = select_coin(&inputs, &opt);
+
+        dbg!(&ans);
+
+        if let Ok(selection_output) = ans {
+            let expected_solution = vec![2, 1];
+            dbg!(&selection_output);
+            dbg!(&expected_solution);
+            assert_eq!(
+                selection_output.selected_inputs, expected_solution,
+                "Expected solution {:?}, but got {:?}",
+                expected_solution, selection_output.selected_inputs
+            );
+        }
+    }
 }
