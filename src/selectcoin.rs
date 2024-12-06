@@ -298,7 +298,7 @@ mod test {
             },
         ];
         let opt = CoinSelectionOpt {
-            target_value: 475000, // Set a target that knapsack can match efficiently
+            target_value: 475000,
             target_feerate: 1.0,
             min_absolute_fee: 0,
             base_weight: 100,
