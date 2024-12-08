@@ -181,7 +181,7 @@ fn create_select_options(inputs: &[TxIn]) -> Vec<CoinSelectionOpt> {
             CoinSelectionOpt {
                 target_value: target_values[i],
                 target_feerate: feerates[i],
-                long_term_feerate: Some(feerates[i]),
+                long_term_feerate: Some(10.0),
                 min_absolute_fee: 1000 * (i + 1) as u64,
                 base_weight,
                 change_weight: 34,
