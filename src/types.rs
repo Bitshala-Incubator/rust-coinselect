@@ -40,8 +40,8 @@ pub struct CoinSelectionOpt {
 
     /// Weights of data in transaction other than the list of inputs that would be selected.
     ///
-    /// This includes weight of the header, total weight out outputs, weight of fields used
-    /// to represent number number of inputs and number outputs, witness etc.,
+    /// This includes weight of the header, total weight of the outputs, weight of fields used
+    /// to represent number of inputs and number of outputs, witness etc.,
     pub base_weight: u32,
 
     /// Additional weight if we include the change output.
