@@ -298,7 +298,7 @@ mod test {
             },
         ];
         let opt = CoinSelectionOpt {
-            target_value: 475000,
+            target_value: 500000,
             target_feerate: 1.0,
             min_absolute_fee: 0,
             base_weight: 100,
@@ -311,17 +311,26 @@ mod test {
             excess_strategy: ExcessStrategy::ToChange,
         };
         let ans = select_coin(&inputs, &opt);
-
+        
         dbg!(&ans);
-
+        
         if let Ok(selection_output) = ans {
-            let expected_solution = vec![2, 1];
-            dbg!(&selection_output);
+            let mut selected_inputs = selection_output.selected_inputs.clone();
+            selected_inputs.sort();
+
+            // The expected solution is vec![1, 2] because the combined value of the selected inputs
+            // (250000 + 300000) meets the target value of 500000 with minimal excess. This selection
+            // minimizes waste and adheres to the constraints of the coin selection algorithm, which
+            // aims to find the most optimal solution. 
+            // Branch and Bound also gives a better time complexity, referenced from Mark Erhardt's Master Thesis.
+
+            let expected_solution = vec![1, 2];
+            dbg!(&selected_inputs);
             dbg!(&expected_solution);
             assert_eq!(
-                selection_output.selected_inputs, expected_solution,
+                selected_inputs, expected_solution,
                 "Expected solution {:?}, but got {:?}",
-                expected_solution, selection_output.selected_inputs
+                expected_solution, selected_inputs
             );
         }
     }
