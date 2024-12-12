@@ -58,7 +58,7 @@ pub fn effective_value(output: &OutputGroup, feerate: f32) -> u64 {
         .saturating_sub(calculate_fee(output.weight, feerate))
 }
 
-// Returns the weight of the output UTXO
+// Returns the weight of the output group(s)
 pub fn calculate_base_weight_btc(output_weight: u64) -> u32 {
     // VERSION_SIZE: 4 bytes - 16 WU
     // SEGWIT_MARKER_SIZE: 2 bytes - 2 WU
@@ -68,6 +68,7 @@ pub fn calculate_base_weight_btc(output_weight: u64) -> u32 {
     // LOCK_TIME_SIZE: 4 bytes - 16 WU
     // OUTPUT_VALUE_SIZE: variable
 
-    // Total default: 16 + 2 + 4 + 4 + 1 + 16 = 43 WU + variable WU
+    // Total default: (16 + 2 + 4 + 4 + 1 + 16 = 43 WU + variable) WU
+    // Source - https://docs.rs/bitcoin/latest/src/bitcoin/blockdata/transaction.rs.html#599-602
     output_weight as u32
 }
