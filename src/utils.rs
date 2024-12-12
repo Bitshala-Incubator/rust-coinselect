@@ -66,7 +66,8 @@ pub fn calculate_base_weight_btc(output_weight: u64) -> u32 {
     // NUM_OUTPUTS_SIZE: 1 byte - 4 WU
     // NUM_WITNESS_SIZE: 1 byte - 1 WU
     // LOCK_TIME_SIZE: 4 bytes - 16 WU
+    // OUTPUT_VALUE_SIZE: variable 
 
-    // Total default: 16 + 2 + 4 + 4 + 1 + 16 = 43 WU
-    output_weight as u32 + 43
+    // Total default: 16 + 2 + 4 + 4 + 1 + 16 = 43 WU + variable WU
+    output_weight as u32
 }
