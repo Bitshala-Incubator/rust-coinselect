@@ -56,3 +56,10 @@ Here is a detailed breakdown of the aforementioned SegWit transaction:
 | **Witness 2**                 | `03cb....3d47`                | 33        | Witness (x1)          | 33                     |
 | **LockTime**                  | `00000000`                    | 4         | Non-witness (x4)      | 16                     |
 | **Total**                     |                                | **222**   |                       | **561**                |
+
+# References 
+
+- https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#transaction-size-calculations 
+- https://en.bitcoin.it/wiki/Weight_units 
+- https://bitcoin.stackexchange.com/questions/121269/what-is-arbitrary-witness-data-and-unspent-transaction-output 
+- https://learnmeabitcoin.com/technical/transaction/size/ 

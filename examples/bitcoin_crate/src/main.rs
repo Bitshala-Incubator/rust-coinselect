@@ -6,12 +6,13 @@ extern crate serde_derive;
 extern crate serde_json;
 
 use bitcoin::{
-    absolute::LockTime, consensus::encode::serialize, transaction, Amount, OutPoint, ScriptBuf,
-    Sequence, Transaction, TxIn, TxOut, Txid, Witness,
+    absolute::LockTime, transaction, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn,
+    TxOut, Txid, Witness,
 };
 use rust_coinselect::{
     selectcoin::select_coin,
     types::{CoinSelectionOpt, ExcessStrategy, OutputGroup},
+    utils::calculate_base_weight_btc,
 };
 use serde_derive::Deserialize;
 use std::fs;
@@ -144,30 +145,12 @@ fn create_outputgroup(tx: Vec<Transaction>) -> Vec<OutputGroup> {
         .collect()
 }
 
-fn calculate_base_weight(inputs: &[TxIn]) -> u32 {
-    println!("Base weights for each UTXO Input: ");
-    let max_weight: u32 = inputs
-        .iter()
-        .map(|input| {
-            let input_size = serialize(input).len();
-            let witness_size = input.witness.iter().map(|w| w.len()).sum::<usize>();
-            let weight = (input_size * 3 + witness_size) as u32;
-            println!(
-                "  Input Size: {}, Witness Size: {}, Weight: {}",
-                input_size, witness_size, weight
-            );
-            weight
-        })
-        .max()
-        .unwrap_or(600);
-    max_weight
-}
-
-fn create_select_options(inputs: &[TxIn]) -> Vec<CoinSelectionOpt> {
+fn create_select_options(output: &TxOut) -> Vec<CoinSelectionOpt> {
     let target_values = [50_000, 100_000, 200_000, 500_000, 1_000_000];
     let feerates = [1.0, 2.0, 3.0, 5.0, 10.0];
-    // Weight defaults to 600 if not provided
-    let base_weight = calculate_base_weight(inputs);
+    // Use the weight() method from TxOut
+    let base_weight = calculate_base_weight_btc(output.weight().to_wu());
+    println!("Base weight: {}", base_weight);
 
     (0..5)
         .map(|i| {
@@ -252,11 +235,11 @@ fn main() {
     };
 
     // Create new transactions using all possible combinations of inputs and outputs
-    let transactions = compose_transactions(inputs.clone(), outputs);
+    let transactions = compose_transactions(inputs.clone(), outputs.clone());
     // Create UTXOs of type OutputGroup to be passed to coin selection
     let utxos = create_outputgroup(transactions);
-    // Create options for coin selection
-    let coin_selection_options = create_select_options(&inputs);
+    // Create options for coin selection - modify to pass reference
+    let coin_selection_options = create_select_options(&outputs[0]);
 
     // Perform coin selection
     perform_select_coin(utxos, coin_selection_options);
