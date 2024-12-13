@@ -12,6 +12,7 @@ use bitcoin::{
 use rust_coinselect::{
     selectcoin::select_coin,
     types::{CoinSelectionOpt, ExcessStrategy, OutputGroup},
+    utils::calculate_base_weight_btc,
 };
 use serde_derive::Deserialize;
 use std::fs;
@@ -144,9 +145,12 @@ fn create_outputgroup(tx: Vec<Transaction>) -> Vec<OutputGroup> {
         .collect()
 }
 
-fn create_select_options() -> Vec<CoinSelectionOpt> {
+fn create_select_options(output: &TxOut) -> Vec<CoinSelectionOpt> {
     let target_values = [50_000, 100_000, 200_000, 500_000, 1_000_000];
     let feerates = [1.0, 2.0, 3.0, 5.0, 10.0];
+    // Use the weight() method from TxOut
+    let base_weight = calculate_base_weight_btc(output.weight().to_wu());
+    println!("Base weight: {}", base_weight);
 
     (0..5)
         .map(|i| {
@@ -157,24 +161,10 @@ fn create_select_options() -> Vec<CoinSelectionOpt> {
                 _ => unreachable!(),
             };
 
-            // The size of a transaction in bytes mostly depends on how many inputs and outputs are in the transaction.
-            // Here are the average sizes for typical transactions (with P2WPKH locking scripts on the outputs):
-
-            //     Inputs: 1, Outputs: 1 = 141 bytes
-            //     Inputs: 1, Outputs: 2 = 174 bytes (most common)
-            //     Inputs: 2, Outputs: 1 = 252 bytes
-            //     Inputs: 2, Outputs: 2 = 285 bytes (very common)
-
-            // The more inputs and outputs there are in a transaction, the bigger it gets.
-            // There is no limit to how big a transaction can be in terms of bytes, other than the fact that it needs to be able to fit inside a block.
-            // Every transaction has a weight measurement. This measurement was introduced in the segregated witness upgrade.
-            // A transaction's weight is calculated by multiplying the size (in bytes) of different parts of the transaction by either 4 or 1
-            let base_weight = 600;
-
             CoinSelectionOpt {
                 target_value: target_values[i],
                 target_feerate: feerates[i],
-                long_term_feerate: Some(feerates[i]),
+                long_term_feerate: Some(10.0),
                 min_absolute_fee: 1000 * (i + 1) as u64,
                 base_weight,
                 change_weight: 34,
@@ -245,11 +235,11 @@ fn main() {
     };
 
     // Create new transactions using all possible combinations of inputs and outputs
-    let transactions = compose_transactions(inputs, outputs);
+    let transactions = compose_transactions(inputs.clone(), outputs.clone());
     // Create UTXOs of type OutputGroup to be passed to coin selection
     let utxos = create_outputgroup(transactions);
-    // Create options for coin selection
-    let coin_selection_options = create_select_options();
+    // Create options for coin selection - modify to pass reference
+    let coin_selection_options = create_select_options(&outputs[0]);
 
     // Perform coin selection
     perform_select_coin(utxos, coin_selection_options);
