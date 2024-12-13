@@ -129,7 +129,7 @@ mod test {
 
     fn knapsack_setup_output_groups(
         value: Vec<u64>,
-        weights: Vec<u32>,
+        weights: Vec<u64>,
         target_feerate: f32,
     ) -> Vec<OutputGroup> {
         let mut inputs: Vec<OutputGroup> = Vec::new();
@@ -150,7 +150,7 @@ mod test {
     fn knapsack_add_to_output_group(
         inputs: &mut Vec<OutputGroup>,
         value: Vec<u64>,
-        weights: Vec<u32>,
+        weights: Vec<u64>,
         target_feerate: f32,
     ) {
         for (i, j) in value.into_iter().zip(weights.into_iter()) {
@@ -475,7 +475,7 @@ mod test {
             inputs.clear();
             // Declare value and weights vectors
             let mut input_value: Vec<u64> = Vec::new();
-            let mut input_weight: Vec<u32> = Vec::new();
+            let mut input_weight: Vec<u64> = Vec::new();
             for _ in 0..676 {
                 // Populate the vectors with the same value 'amt' and weight = 23 for 676 times
                 // Using 676 as (old MAX_STANDARD_TX_SIZE = 100000)/(148 bytes per input) = 676
@@ -510,7 +510,7 @@ mod test {
         // Testing for Randomness
         // Declare input value and weights vectors
         let mut input_value: Vec<u64> = Vec::new();
-        let mut input_weight: Vec<u32> = Vec::new();
+        let mut input_weight: Vec<u64> = Vec::new();
         for _ in 0..=100 {
             // Populate the vectors with the same value, COIN = 100000000 sats, and weight = 23 for 100 times (to create 100 identical inputs)
             input_value.push(COIN as u64);

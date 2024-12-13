@@ -137,7 +137,7 @@ fn create_outputgroup(tx: Vec<Transaction>) -> Vec<OutputGroup> {
         .enumerate()
         .map(|(i, tx)| OutputGroup {
             value: tx.output.iter().map(|op| op.value.to_sat()).sum(),
-            weight: tx.total_size() as u32,
+            weight: tx.total_size() as u64,
             input_count: tx.input.len(),
             creation_sequence: Some(i as u32),
         })
