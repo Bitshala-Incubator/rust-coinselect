@@ -5,7 +5,7 @@ use std::collections::HashSet;
 pub fn calculate_waste(
     options: &CoinSelectionOpt,
     accumulated_value: u64,
-    accumulated_weight: u32,
+    accumulated_weight: u64,
     estimated_fee: u64,
 ) -> u64 {
     // waste =  weight*(target feerate - long term fee rate) + cost of change + excess
@@ -35,8 +35,8 @@ pub fn calculate_waste(
 pub fn calculate_accumulated_weight(
     smaller_coins: &[(usize, EffectiveValue, Weight)],
     selected_inputs: &HashSet<usize>,
-) -> u32 {
-    let mut accumulated_weight: u32 = 0;
+) -> u64 {
+    let mut accumulated_weight: u64 = 0;
     for &(index, _value, weight) in smaller_coins {
         if selected_inputs.contains(&index) {
             accumulated_weight += weight;
@@ -46,7 +46,7 @@ pub fn calculate_accumulated_weight(
 }
 
 #[inline]
-pub fn calculate_fee(weight: u32, rate: f32) -> u64 {
+pub fn calculate_fee(weight: u64, rate: f32) -> u64 {
     (weight as f32 * rate).ceil() as u64
 }
 

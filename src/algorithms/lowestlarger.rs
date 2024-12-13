@@ -11,7 +11,7 @@ pub fn select_coin_lowestlarger(
     options: &CoinSelectionOpt,
 ) -> Result<SelectionOutput, SelectionError> {
     let mut accumulated_value: u64 = 0;
-    let mut accumulated_weight: u32 = 0;
+    let mut accumulated_weight: u64 = 0;
     let mut selected_inputs: Vec<usize> = Vec::new();
     let mut estimated_fees: u64 = 0;
     let target = options.target_value + options.min_change_value;
