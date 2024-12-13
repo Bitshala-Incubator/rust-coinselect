@@ -59,7 +59,7 @@ pub fn effective_value(output: &OutputGroup, feerate: f32) -> u64 {
 }
 
 // Returns the weight of the output group(s)
-pub fn calculate_base_weight_btc(output_weight: u64) -> u32 {
+pub fn calculate_base_weight_btc(output_weight: u64) -> u64 {
     // VERSION_SIZE: 4 bytes - 16 WU
     // SEGWIT_MARKER_SIZE: 2 bytes - 2 WU
     // NUM_INPUTS_SIZE: 1 byte - 4 WU
@@ -70,5 +70,5 @@ pub fn calculate_base_weight_btc(output_weight: u64) -> u32 {
 
     // Total default: (16 + 2 + 4 + 4 + 1 + 16 = 43 WU + variable) WU
     // Source - https://docs.rs/bitcoin/latest/src/bitcoin/blockdata/transaction.rs.html#599-602
-    output_weight as u32
+    output_weight
 }
