@@ -155,7 +155,7 @@ fn create_outputgroup(
         }
         output_group_vec.push(OutputGroup {
             value: tx.output.iter().map(|op| op.value.to_sat()).sum(),
-            weight: tx.total_size() as u32,
+            weight: tx.total_size() as u64,
             input_count: tx.input.len(),
             creation_sequence: Some(creation_sequence),
         })
@@ -181,11 +181,11 @@ fn create_select_options() -> Result<Vec<CoinSelectionOpt>, Box<dyn std::error::
             target_feerate: rng.gen_range(1.0..5.0) as f32,
             long_term_feerate: Some(rng.gen_range(1..10) as f32),
             min_absolute_fee: rng.gen_range(1..20) as u64,
-            base_weight: rng.gen_range(1..30) as u32,
-            change_weight: rng.gen_range(5..30) as u32,
+            base_weight: rng.gen_range(1..30) as u64,
+            change_weight: rng.gen_range(5..30) as u64,
             change_cost: rng.gen_range(1..20) as u64,
-            avg_input_weight: rng.gen_range(1..10) as u32,
-            avg_output_weight: rng.gen_range(1..10) as u32,
+            avg_input_weight: rng.gen_range(1..10) as u64,
+            avg_output_weight: rng.gen_range(1..10) as u64,
             min_change_value: rng.gen_range(100..1000) as u64,
             excess_strategy,
         })

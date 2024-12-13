@@ -52,7 +52,7 @@ pub fn select_coin_bnb(
             let accumulated_value: u64 = selected_coin
                 .iter()
                 .fold(0, |acc, &i| acc + inputs[i].value);
-            let accumulated_weight: u32 = selected_coin
+            let accumulated_weight: u64 = selected_coin
                 .iter()
                 .fold(0, |acc, &i| acc + inputs[i].weight);
             let estimated_fee = 0;
