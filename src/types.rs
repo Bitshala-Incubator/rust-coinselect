@@ -12,7 +12,7 @@ pub struct OutputGroup {
     ///
     /// The `txin` fields: `prevout`, `nSequence`, `scriptSigLen`, `scriptSig`, `scriptWitnessLen`,
     /// and `scriptWitness` should all be included.
-    pub weight: u32,
+    pub weight: u64,
     /// The total number of inputs
     pub input_count: usize,
     /// Specifies the relative creation sequence for this group, used only for FIFO selection.
@@ -43,21 +43,21 @@ pub struct CoinSelectionOpt {
     ///
     /// This includes weight of the header, total weight out outputs, weight of fields used
     /// to represent number number of inputs and number outputs, witness etc.,
-    pub base_weight: u32,
+    pub base_weight: u64,
 
     /// Additional weigh added to a transaction when a change output is created.
     /// Used in weight metric computation.
-    pub change_weight: u32,
+    pub change_weight: u64,
 
     /// Total cost associated with creating and later spending a change output in a transaction.
     /// This includes the transaction fees for both the current transaction (where the change is created) and the future transaction (where the change is spent)
     pub change_cost: u64,
 
     /// Estimate of average weight of an input.
-    pub avg_input_weight: u32,
+    pub avg_input_weight: u64,
 
     /// Estimate of average weight of an output.
-    pub avg_output_weight: u32,
+    pub avg_output_weight: u64,
 
     /// The smallest amount of change that is considered acceptable in a transaction given the dust limit
     pub min_change_value: u64,
@@ -103,4 +103,4 @@ pub struct SelectionOutput {
 pub type EffectiveValue = u64;
 
 /// Weight type alias
-pub type Weight = u32;
+pub type Weight = u64;
