@@ -3,10 +3,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 
-use bitcoin::{
-    absolute::LockTime, transaction, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn,
-    TxOut, Txid, Witness,
-};
+use bitcoin::{Amount, OutPoint, ScriptBuf, Sequence, TxIn, TxOut, Txid, Witness};
 use rust_coinselect::{
     selectcoin::select_coin,
     types::{CoinSelectionOpt, ExcessStrategy, OutputGroup},
@@ -76,20 +73,13 @@ fn create_txins() -> Vec<TxIn> {
     ]
 }
 
-fn create_transaction(txinput: Vec<TxIn>, txoutput: Vec<TxOut>) -> Transaction {
-    Transaction {
-        version: transaction::Version::TWO,
-        lock_time: LockTime::ZERO,
-        input: txinput,
-        output: txoutput,
-    }
-}
-
-fn create_outputgroup(tx: Transaction) -> OutputGroup {
+/// Creates an OutputGroup from a transaction input and its value
+/// Value would normally be queried from the mainchain for the UTXO being spent
+fn create_outputgroup(signed_utxo: TxIn, value: u64) -> OutputGroup {
     OutputGroup {
-        value: tx.output.iter().map(|op| op.value.to_sat()).sum(),
-        weight: tx.total_size() as u64,
-        input_count: tx.input.len(),
+        value, // In real usage: Query blockchain for UTXO value at signed_utxo.previous_output
+        weight: signed_utxo.total_size() as u64,
+        input_count: 1,
         creation_sequence: None,
     }
 }
@@ -125,21 +115,31 @@ fn create_select_options(output_weight: u64) -> Vec<CoinSelectionOpt> {
         .collect()
 }
 
-fn perform_select_coin(utxo: OutputGroup, coin_select_options_vec: Vec<CoinSelectionOpt>) {
-    println!("Value:{} sats", utxo.value);
-    println!("Weight:{} bytes", utxo.weight);
-    println!("No. of Inputs: {}", utxo.input_count);
+fn perform_select_coin(utxos: &[OutputGroup], coin_select_options_vec: Vec<CoinSelectionOpt>) {
+    // Printing individual UTXOs in a table format
     println!(
-        "Creation Sequence: {:?}",
-        utxo.creation_sequence.unwrap_or(0)
+        "\n{:<15} | {:<15} | {:<15} | {:<20}",
+        "Value (sats)", "Weight (bytes)", "Input Count", "Creation Sequence"
     );
+    println!("{:-<71}", "");
+
+    for utxo in utxos.iter() {
+        println!(
+            "{:<15} | {:<15} | {:<15} | {:<20}",
+            utxo.value,
+            utxo.weight,
+            utxo.input_count,
+            utxo.creation_sequence.unwrap_or(0)
+        );
+    }
+    println!("{:-<71}", "");
 
     for coin_select_options in coin_select_options_vec.iter().take(5) {
         println!(
             "\nSelecting UTXOs to total: {:?} sats",
             coin_select_options.target_value
         );
-        match select_coin(&[utxo.clone()], coin_select_options) {
+        match select_coin(utxos, coin_select_options) {
             Ok(selectionoutput) => {
                 println!(
                     "Selected utxo index and waste metrics are: {:?}",
@@ -154,19 +154,23 @@ fn perform_select_coin(utxo: OutputGroup, coin_select_options_vec: Vec<CoinSelec
 }
 
 fn main() {
-    // Create inputs and outputs manually
+    // Create inputs and outputs
     let inputs = create_txins();
     let outputs = create_txouts();
 
-    // Create a new transaction using the inputs and outputs
-    let transaction = create_transaction(inputs.clone(), outputs.clone());
+    // Mock values for each input (in satoshis), you can change according to your requirements
+    let mock_values = vec![50_000, 100_000, 300_000, 400_000];
 
-    // Create UTXOs of type OutputGroup to be passed to coin selection
-    let utxo = create_outputgroup(transaction);
+    // Create OutputGroups from each input with corresponding mock value
+    let utxos: Vec<OutputGroup> = inputs
+        .into_iter()
+        .zip(mock_values)
+        .map(|(input, value)| create_outputgroup(input, value))
+        .collect();
 
-    // Create options for coin selection
+    // Create coin selection options using output weight
     let coin_selection_options = create_select_options(outputs[0].weight().to_wu());
 
-    // Perform coin selection
-    perform_select_coin(utxo, coin_selection_options);
+    // Perform coin selection for UTXOs
+    perform_select_coin(&utxos, coin_selection_options.clone());
 }
