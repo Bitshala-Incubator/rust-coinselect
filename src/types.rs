@@ -1,7 +1,7 @@
 /// Represents an input candidate for Coinselection, either as a single UTXO or a group of UTXOs.
 ///
 /// A [`OutputGroup`] can be a single UTXO or a group that should be spent together.
-/// Grouping UTXOs will downgrade the wallet's privacy heuristics.
+/// Grouping UTXOs belonging to a single address is privacy preserving than grouping UTXOs belonging to different addresses.
 /// In the UTXO model the output of a transaction is used as the input for the new transaction and hence the name [`OutputGroup`]
 /// The library user must craft this structure correctly, as incorrect representation can lead to incorrect selection results.
 #[derive(Debug, Clone)]
