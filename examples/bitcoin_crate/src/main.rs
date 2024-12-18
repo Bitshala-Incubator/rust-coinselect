@@ -6,8 +6,8 @@ extern crate serde_derive;
 extern crate serde_json;
 
 use bitcoin::{
-    absolute::LockTime, transaction, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn,
-    TxOut, Txid, Witness,
+    absolute::LockTime, consensus::serialize, transaction, Amount, OutPoint, ScriptBuf, Sequence,
+    Transaction, TxIn, TxOut, Txid, Witness,
 };
 use rust_coinselect::{
     selectcoin::select_coin,
@@ -36,8 +36,7 @@ fn log_utxos(utxos: &[OutputGroup]) {
 }
 
 fn main() {
-    let target: u64 = 4_000_000;
-
+    // mock txins
     let inputs: Vec<TxIn> = vec![
         TxIn {
             previous_output: OutPoint {
@@ -91,53 +90,48 @@ fn main() {
     //    - Output weight in Bitcoin depends on script size, not value
     //    - Value field is fixed 8 bytes regardless of amount
     //    - Only the script pubkey size affects weight
-    let mut change_value = 0;
-    const SCRIPT: &str = "a91409f6eed90e2ec7fed923b3d0b9d026efded6335c87";
+    let mut change_output = TxOut {
+        value: Amount::from_sat(0),
+        script_pubkey: ScriptBuf::from_hex("a91409f6eed90e2ec7fed923b3d0b9d026efded6335c87")
+            .unwrap(),
+    };
 
-    fn change_output(change_value: u64) -> TxOut {
-        TxOut {
-            value: Amount::from_sat(change_value),
-            script_pubkey: ScriptBuf::from_hex(SCRIPT).unwrap(),
-        }
-    }
+    // Prepare target TxOut
+    let target = 1_500_000;
     let target_output = TxOut {
         value: Amount::from_sat(target),
-        script_pubkey: ScriptBuf::from_hex(SCRIPT).unwrap(),
+        script_pubkey: ScriptBuf::from_hex("00142fffa9a09bb7fa7dced44834d77ee81c49c5f0cc").unwrap(),
     };
-    let outputs = vec![target_output.clone(), change_output(change_value)];
 
-    fn create_tx(inputs: Vec<TxIn>, outputs: Vec<TxOut>) -> Transaction {
-        Transaction {
-            version: transaction::Version::TWO,
-            lock_time: LockTime::ZERO,
-            input: inputs,
-            output: outputs,
-        }
-    }
-
-    let output_weight_sum = outputs.iter().map(|output| output.weight().to_wu()).sum();
+    // Prepare CoinSelectionOpt
+    let long_term_feerate = 10.0;
+    let change_weight = change_output.weight().to_wu();
+    let change_cost = calculate_fee(change_weight, long_term_feerate);
+    let target_weight = target_output.weight().to_wu();
+    let avg_output_weight = (change_weight + target_weight) / 2;
+    let avg_input_weight = inputs
+        .iter()
+        .map(|input| input.segwit_weight().to_wu())
+        .sum::<u64>()
+        / inputs.len() as u64;
 
     // Create coin selection options
     let coin_selection_option = CoinSelectionOpt {
         target_value: target,
-        target_feerate: 5.0,
-        long_term_feerate: Some(10.0),
+        target_feerate: 15.0,
+        long_term_feerate: Some(long_term_feerate),
         min_absolute_fee: 4000,
-        base_weight: calculate_base_weight_btc(output_weight_sum),
-        change_weight: 34,
-        change_cost: 8,
-        avg_input_weight: inputs
-            .iter()
-            .map(|input| u64::from(input.segwit_weight()))
-            .sum::<u64>()
-            / inputs.len() as u64,
-        avg_output_weight: output_weight_sum / 2,
+        base_weight: calculate_base_weight_btc(target_weight + change_weight),
+        change_weight,
+        change_cost,
+        avg_input_weight,
+        avg_output_weight,
         min_change_value: 100,
         excess_strategy: ExcessStrategy::ToChange,
     };
 
     // Mock values for each input
-    let mock_input_values = vec![100_000, 500_000, 1_000_000, 3_000_000];
+    let mock_input_values = vec![100_000, 3_000_000, 1_000_000, 500_000];
 
     // Create OutputGroups from each input
     let utxos: Vec<OutputGroup> = inputs
@@ -147,34 +141,65 @@ fn main() {
         .map(|(input, value)| OutputGroup {
             // In practice, the details about the UTXO, used as input, is obtained from the UTXO set maintained by a node.
             value,
-            weight: u64::from(input.segwit_weight()),
+            weight: input.segwit_weight().to_wu(),
             input_count: 1,
             creation_sequence: None,
         })
         .collect();
 
     // Perform selection among the available UTXOs, create final transaction
+    println!("The given OutputGroups are......");
     log_utxos(&utxos);
     match select_coin(&utxos, &coin_selection_option) {
         Ok(selection) => {
             println!("Selected utxo index and waste metrics are: {:?}", selection);
-            let selected_utxo_aggregate: u64 = selection
+
+            let selected_txins: Vec<TxIn> = selection
+                .selected_inputs
+                .iter()
+                .map(|&index| inputs[index].clone())
+                .collect();
+
+            let selected_output_groups: Vec<OutputGroup> = selection
+                .selected_inputs
+                .iter()
+                .map(|&index| utxos[index].clone())
+                .collect();
+            println!("The selected OutputGroups are......");
+            log_utxos(&selected_output_groups);
+
+            let selected_txins_value: u64 = selection
                 .selected_inputs
                 .iter()
                 .map(|&i| utxos[i].value)
                 .sum();
 
-            // Create a transaction for the purpose of calculating a default weight first
+            // Create a transaction for the purpose of calculating the fee using the selected inputs
+            let mut tx = Transaction {
+                version: transaction::Version::TWO,
+                lock_time: LockTime::ZERO,
+                input: selected_txins,
+                output: vec![target_output, change_output.clone()],
+            };
             let fee = calculate_fee(
-                u64::from(create_tx(inputs.clone(), outputs).weight()),
+                tx.weight().to_wu(),
                 coin_selection_option.long_term_feerate.unwrap(),
             );
 
-            change_value = selected_utxo_aggregate - (target + fee);
+            // update the change output with the actual change value
+            let change_value = selected_txins_value - (target + fee);
+            change_output.value = Amount::from_sat(change_value);
             println!(
-                "Transaction Outputs created with target: {target} and change: {change_value}"
+                "Target value = {}. Change value = {}, total input value of tx = {}",
+                target, change_value, selected_txins_value
             );
-            create_tx(inputs, vec![target_output, change_output(change_value)]);
+
+            // update the change output of the transaction
+            tx.output[1] = change_output;
+
+            println!("The final transaction id = {}", tx.compute_txid());
+            println!("Now the below tx can be broadcasted");
+            println!("{:?}", serialize(&tx));
         }
         Err(_) => println!("Coin Selection failed!"),
     }
