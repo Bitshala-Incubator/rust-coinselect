@@ -11,21 +11,34 @@ use bitcoin::{
 };
 use rust_coinselect::{
     selectcoin::select_coin,
-    types::{CoinSelectionOpt, ExcessStrategy, OutputGroup, SelectionError, SelectionOutput},
+    types::{CoinSelectionOpt, ExcessStrategy, OutputGroup},
     utils::{calculate_base_weight_btc, calculate_fee},
 };
 use std::str::FromStr;
 
-fn create_txout(value: u64) -> TxOut {
-    TxOut {
-        value: Amount::from_sat(value),
-        script_pubkey: ScriptBuf::from_hex("a91409f6eed90e2ec7fed923b3d0b9d026efded6335c87")
-            .unwrap(),
+fn log_utxos(utxos: &[OutputGroup]) {
+    println!(
+        "\n{:<15} | {:<15} | {:<15} | {:<20}",
+        "Value (sats)", "Weight (bytes)", "Input Count", "Creation Sequence"
+    );
+    println!("{:-<71}", "");
+
+    for utxo in utxos.iter() {
+        println!(
+            "{:<15} | {:<15} | {:<15} | {:<20}",
+            utxo.value,
+            utxo.weight,
+            utxo.input_count,
+            utxo.creation_sequence.unwrap_or(0)
+        );
     }
+    println!("{:-<71}", "");
 }
 
-fn create_txins() -> Vec<TxIn> {
-    vec![
+fn main() {
+    let target: u64 = 4_000_000;
+
+    let inputs: Vec<TxIn> = vec![
         TxIn {
             previous_output: OutPoint {
                 txid: Txid::from_str("e9269b40306f10e2636414e514366474d5736256844882ffefd794f688b648b0").unwrap(),
@@ -68,47 +81,7 @@ fn create_txins() -> Vec<TxIn> {
                 "02f2a0bdce72551e68dfbebf81d770924836cbb256a63e9987ea869eabac4859c1"
             ]),
         }
-    ]
-}
-
-fn create_tx(inputs: Vec<TxIn>, outputs: Vec<TxOut>) -> Transaction {
-    Transaction {
-        version: transaction::Version::TWO,
-        lock_time: LockTime::ZERO,
-        input: inputs,
-        output: outputs,
-    }
-}
-
-fn log_utxos(utxos: &[OutputGroup]) {
-    println!(
-        "\n{:<15} | {:<15} | {:<15} | {:<20}",
-        "Value (sats)", "Weight (bytes)", "Input Count", "Creation Sequence"
-    );
-    println!("{:-<71}", "");
-
-    for utxo in utxos.iter() {
-        println!(
-            "{:<15} | {:<15} | {:<15} | {:<20}",
-            utxo.value,
-            utxo.weight,
-            utxo.input_count,
-            utxo.creation_sequence.unwrap_or(0)
-        );
-    }
-    println!("{:-<71}", "");
-}
-
-fn perform_select_coin(
-    utxos: &[OutputGroup],
-    opt: &CoinSelectionOpt,
-) -> Result<SelectionOutput, SelectionError> {
-    log_utxos(utxos);
-    select_coin(utxos, opt)
-}
-
-fn main() {
-    let target: u64 = 4_000_000;
+    ];
 
     // Pre-calculate transaction weight using a dummy change output
     // Rationale:
@@ -118,8 +91,31 @@ fn main() {
     //    - Output weight in Bitcoin depends on script size, not value
     //    - Value field is fixed 8 bytes regardless of amount
     //    - Only the script pubkey size affects weight
-    let outputs = vec![create_txout(target), create_txout(0)];
-    let inputs = create_txins();
+    let mut change_value = 0;
+    fn change_output(change_value: u64) -> TxOut {
+        TxOut {
+            value: Amount::from_sat(change_value),
+            script_pubkey: ScriptBuf::from_hex("a91409f6eed90e2ec7fed923b3d0b9d026efded6335c87")
+                .unwrap(),
+        }
+    }
+    let target_output = TxOut {
+        value: Amount::from_sat(target),
+        script_pubkey: ScriptBuf::from_hex("a91409f6eed90e2ec7fed923b3d0b9d026efded6335c87")
+            .unwrap(),
+    };
+    let outputs = vec![target_output.clone(), change_output(change_value)];
+
+    fn create_tx(inputs: Vec<TxIn>, outputs: Vec<TxOut>) -> Transaction {
+        Transaction {
+            version: transaction::Version::TWO,
+            lock_time: LockTime::ZERO,
+            input: inputs,
+            output: outputs,
+        }
+    }
+
+    let output_weight_sum = outputs.iter().map(|output| output.weight().to_wu()).sum();
 
     // Create coin selection options
     let coin_selection_option = CoinSelectionOpt {
@@ -127,22 +123,18 @@ fn main() {
         target_feerate: 5.0,
         long_term_feerate: Some(10.0),
         min_absolute_fee: 4000,
-        base_weight: calculate_base_weight_btc(
-            outputs.iter().map(|output| output.weight().to_wu()).sum(),
-        ),
+        base_weight: calculate_base_weight_btc(output_weight_sum),
         change_weight: 34,
         change_cost: 8,
-        avg_input_weight: 148,
-        avg_output_weight: 34,
+        avg_input_weight: inputs
+            .iter()
+            .map(|input| u64::from(input.segwit_weight()))
+            .sum::<u64>()
+            / inputs.len() as u64,
+        avg_output_weight: output_weight_sum / 2,
         min_change_value: 100,
         excess_strategy: ExcessStrategy::ToChange,
     };
-
-    // Create a transaction for the purpose of calculating a default weight first
-    let fee = calculate_fee(
-        u64::from(create_tx(inputs.clone(), outputs).weight()),
-        coin_selection_option.target_feerate,
-    );
 
     // Mock values for each input
     let mock_input_values = vec![100_000, 500_000, 1_000_000, 3_000_000];
@@ -155,14 +147,15 @@ fn main() {
         .map(|(input, value)| OutputGroup {
             // In practice, the details about the UTXO, used as input, is obtained from the UTXO set maintained by a node.
             value,
-            weight: input.total_size() as u64,
+            weight: u64::from(input.segwit_weight()),
             input_count: 1,
             creation_sequence: None,
         })
         .collect();
 
     // Perform selection among the available UTXOs, create final transaction
-    match perform_select_coin(&utxos, &coin_selection_option) {
+    log_utxos(&utxos);
+    match select_coin(&utxos, &coin_selection_option) {
         Ok(selection) => {
             println!("Selected utxo index and waste metrics are: {:?}", selection);
             let selected_utxo_aggregate: u64 = selection
@@ -171,14 +164,17 @@ fn main() {
                 .map(|&i| utxos[i].value)
                 .sum();
 
-            let change_value = selected_utxo_aggregate - (target + fee);
+            // Create a transaction for the purpose of calculating a default weight first
+            let fee = calculate_fee(
+                u64::from(create_tx(inputs.clone(), outputs).weight()),
+                coin_selection_option.long_term_feerate.unwrap(),
+            );
+
+            change_value = selected_utxo_aggregate - (target + fee);
             println!(
                 "Transaction Outputs created with target: {target} and change: {change_value}"
             );
-            create_tx(
-                inputs,
-                vec![create_txout(target), create_txout(change_value)],
-            );
+            create_tx(inputs, vec![target_output, change_output(change_value)]);
         }
         Err(_) => println!("Coin Selection failed!"),
     }
