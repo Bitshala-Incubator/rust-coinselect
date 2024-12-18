@@ -92,17 +92,17 @@ fn main() {
     //    - Value field is fixed 8 bytes regardless of amount
     //    - Only the script pubkey size affects weight
     let mut change_value = 0;
+    const SCRIPT: &str = "a91409f6eed90e2ec7fed923b3d0b9d026efded6335c87";
+
     fn change_output(change_value: u64) -> TxOut {
         TxOut {
             value: Amount::from_sat(change_value),
-            script_pubkey: ScriptBuf::from_hex("a91409f6eed90e2ec7fed923b3d0b9d026efded6335c87")
-                .unwrap(),
+            script_pubkey: ScriptBuf::from_hex(SCRIPT).unwrap(),
         }
     }
     let target_output = TxOut {
         value: Amount::from_sat(target),
-        script_pubkey: ScriptBuf::from_hex("a91409f6eed90e2ec7fed923b3d0b9d026efded6335c87")
-            .unwrap(),
+        script_pubkey: ScriptBuf::from_hex(SCRIPT).unwrap(),
     };
     let outputs = vec![target_output.clone(), change_output(change_value)];
 
