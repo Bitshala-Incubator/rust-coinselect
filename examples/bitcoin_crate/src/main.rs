@@ -1,3 +1,5 @@
+/*  An example showing how to use the rust bitcoin crate with the coinselect crate. The input and output details are stored in separate JSON files. The inputs and outputs are first read from the file and UTXOs are constructed using a combination of the inputs and outputs. The coin selection options are initiated. The UTXOs are then converted in OutputGroups. Finally the vector of OutputGroups and CoinSelectionOpt are used to call the coin selection method to perform the selection operation.
+*/
 extern crate bitcoin;
 extern crate serde;
 extern crate serde_derive;
