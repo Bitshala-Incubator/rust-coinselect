@@ -5,7 +5,7 @@ edition = "2021"
 description = "A blockchain-agnostic coin selection library built in Rust."
 readme = "README.md"
 documentation = "https://docs.rs/rust-coinselect"
-keywords = ["UTXO", "coinselection", "subsetsum", "algorithms", "bitcoin", "blockchain"]
+keywords = ["UTXO", "coinselection", "subsetsum algorithms", "bitcoin", "blockchain"]
 license = "MIT"
 repository = "https://github.com/Bitshala-Incubator/rust-coinselect"
 
