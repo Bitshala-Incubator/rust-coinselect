@@ -24,17 +24,17 @@ An example usage is given below
 let utxos: Vec<UTXO> = vec![<utxo1>, <utxo2>, ..., <utxon>]; // List of the available UTXOs
 let output_groups: Vec<OutputGroup> = utxos.iter().map(|utxo| convert_utxo_to_output(utxo)).collect();
 let options = CoinSelectionOpt {
-    target_value: 4_000_000u64, // Amount that needs to be spent
-    target_fee_rate: 0.5f32, // User's preferred fee rate
-    long_term_feerate: Some(0.3f32), // Estimate of the fee rate that the wallet might need to pay to spend the UTXOs in the future
-    min_absolute_fee: 1000u64, // Lowest possible transaction fees required to get a transaction included in a block 
-    base_weight: 72u32, // The weight of the transaction, including all inputs and outputs
-    change_weight: 18u32, // Additional weight added to a transaction when a change output is created
-    change_cost: 250u64, // Total cost associated with creating and later spending a change output in a transaction
-    avg_input_weight: 300u64, // Estimate of an average input's weight 
-    avg_output_weight: 250u64, // Estimate of an average output's weight
-    min_change_value: 1_000u64, // Smallest amount of change that is considered acceptable in a transaction considering the dust limits. 
-    excess_strategy: ExcessStrategy::ToChange, // Strategy to handle the excess value (input - output)
+    target_value: 4_000_000u64,
+    target_fee_rate: 0.5f32,
+    long_term_feerate: Some(0.3f32),
+    min_absolute_fee: 1000u64,
+    base_weight: 72u64,
+    change_weight: 18u64,
+    change_cost: 250u64,
+    cost_per_input: 300u64,
+    cost_per_output: 250u64,
+    min_change_value: 1_000u64,
+    excess_strategy: ExcessStrategy::ToChange,
 };
 
 let selection_output = select_coin(&output_groups, options);
