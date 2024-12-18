@@ -1,7 +1,7 @@
 /// Represents an input candidate for Coinselection, either as a single UTXO or a group of UTXOs.
 ///
 /// A [`OutputGroup`] can be a single UTXO or a group that should be spent together.
-/// For privacy reasons it might be a good choice to spend a group of UTXOs together.
+/// Grouping UTXOs belonging to a single address is privacy preserving than grouping UTXOs belonging to different addresses.
 /// In the UTXO model the output of a transaction is used as the input for the new transaction and hence the name [`OutputGroup`]
 /// The library user must craft this structure correctly, as incorrect representation can lead to incorrect selection results.
 #[derive(Debug, Clone)]
@@ -31,11 +31,12 @@ pub struct CoinSelectionOpt {
     /// The target feerate we should try and achieve in sats per weight unit.
     pub target_feerate: f32,
 
-    /// The long term feerate affects how the [`WasteMetric`] is computed.
-    /// If `target_feerate < long_term_feerate` then it's a good time to spend meaning less waste.
+    /// The long term fee-rate is an estimate of the future transaction fee rate that a wallet might need to pay to spend its UTXOs.
+    /// If the current fee rates are less than the long term fee rate, it is optimal to consolidate UTXOs to make the spend.
+    /// It affects how the [`WasteMetric`] is computed.
     pub long_term_feerate: Option<f32>,
 
-    /// The minimum absolute fee. I.e., needed for RBF.
+    /// Lowest possible transaction fee required to get a transaction included in a block
     pub min_absolute_fee: u64,
 
     /// Weights of data in transaction other than the list of inputs that would be selected.
@@ -44,12 +45,12 @@ pub struct CoinSelectionOpt {
     /// to represent number number of inputs and number outputs, witness etc.,
     pub base_weight: u64,
 
-    /// Additional weight if we include the change output.
-    ///
+    /// Additional weigh added to a transaction when a change output is created.
     /// Used in weight metric computation.
     pub change_weight: u64,
 
-    /// Weight of spending the change output in the future.
+    /// Total cost associated with creating and later spending a change output in a transaction.
+    /// This includes the transaction fees for both the current transaction (where the change is created) and the future transaction (where the change is spent)
     pub change_cost: u64,
 
     /// Estimate of average weight of an input.
@@ -58,7 +59,7 @@ pub struct CoinSelectionOpt {
     /// Estimate of average weight of an output.
     pub avg_output_weight: u64,
 
-    /// Minimum value allowed for a change output to avoid dusts.
+    /// The smallest amount of change that is considered acceptable in a transaction given the dust limit
     pub min_change_value: u64,
 
     /// Strategy to use the excess value other than fee and target

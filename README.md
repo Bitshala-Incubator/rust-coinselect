@@ -4,7 +4,7 @@ A blockchain-agnostic coin selection library built in Rust.
 
 ## Technical Scope
 
-The library will perform coin selection via various algorithms through a well-documented API. The API will be generic in nature and will not assume any Bitcoin structure or methods. It can be used for any UTXO-based blockchain.
+The library performs coin selection via various algorithms through a well-documented API. The API is generic in nature and does not assume any structure or method specific to bitcoin. It is designed to be used by any UTXO-based blockchain.
 
 The following algorithms are implemented from scratch in Rust:
 
@@ -14,11 +14,11 @@ The following algorithms are implemented from scratch in Rust:
 - First-In-First-Out
 - Single-Random-Draw
 
-The library will have individual APIs for each algorithm and provide a wrapper API `select_coin()` which will perform selection via each algorithm and return the result with the least waste metric.
+The library has individual APIs for each algorithm. It also has a wrapper API `select_coin()` which performs selection via each algorithm and return the selection result with the least waste metric.
 
 Bitcoin specific example is given [here](./examples/bitcoin_crate/).
 
-In general the example usage is given below,
+An example usage is given below
 
 ```rust
 let utxos: Vec<UTXO> = vec![<utxo1>, <utxo2>, ..., <utxon>]; // List of the available UTXOs
@@ -44,14 +44,14 @@ println!("Indexes of the selected utxos = {}", selection_output.selected_inputs)
 let selected_utxos: Vec<UTXO> = selection_output.iter().map(|index| utxos[index]).collect();
 ```
 
-The `convert_utxo_to_output` logic should be implemented by yourself for the respective blockchain protocol.
+The `convert_utxo_to_output` logic should be implemented by the user for the respective blockchain protocol.
 Note that we can group multiple utxos into a single [`OutputGroup`].
 
 Other characteristics of the library:
 
 - Well-documented code, helpful in understanding coin selection theory.
 - Minimal possible dependency footprint.
-- Minimum possible MSRV (Minimum Supported Rust Version).
+- Minimal possible MSRV (Minimum Supported Rust Version).
 
 ## Community
 
