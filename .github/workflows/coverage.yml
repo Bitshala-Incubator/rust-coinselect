@@ -1,9 +1,14 @@
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+
 name: coverage
 
-on: [push]
 jobs:
-  test:
-    name: coverage
+  check:
+    name: Rust project
     runs-on: ubuntu-latest
     container:
       image: xd009642/tarpaulin:develop-nightly
@@ -19,5 +24,4 @@ jobs:
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v2
         with:
-          # token: ${{secrets.CODECOV_TOKEN}} # not required for public repos
           fail_ci_if_error: true
