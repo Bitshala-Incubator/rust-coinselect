@@ -24,8 +24,10 @@ jobs:
         run: cargo install cargo-tarpaulin
 
       - name: Run cargo-tarpaulin
-        run: cargo tarpaulin --timeout 1900 --out Xml --output-dir "./coverage/reports/" --features integration-test -- --nocapture
-      
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          version: '0.15.0'
+          
       # Upload coverage report
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
