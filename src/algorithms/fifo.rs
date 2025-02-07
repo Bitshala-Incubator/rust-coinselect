@@ -69,7 +69,7 @@ pub fn select_coin_fifo(
 mod test {
 
     use crate::{
-        algorithms::{fifo::select_coin_fifo, srd::select_coin_srd},
+        algorithms::fifo::select_coin_fifo,
         types::{CoinSelectionOpt, ExcessStrategy, OutputGroup, SelectionError},
     };
 
@@ -143,7 +143,7 @@ mod test {
     fn test_successful_selection() {
         let mut inputs = setup_basic_output_groups();
         let mut options = setup_options(2500);
-        let mut result = select_coin_srd(&inputs, &options);
+        let mut result = select_coin_fifo(&inputs, &options);
         assert!(result.is_ok());
         let mut selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
@@ -159,7 +159,7 @@ mod test {
     fn test_insufficient_funds() {
         let inputs = setup_basic_output_groups();
         let options = setup_options(7000); // Set a target value higher than the sum of all inputs
-        let result = select_coin_srd(&inputs, &options);
+        let result = select_coin_fifo(&inputs, &options);
         assert!(matches!(result, Err(SelectionError::InsufficientFunds)));
     }
 
