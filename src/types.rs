@@ -75,10 +75,12 @@ pub enum ExcessStrategy {
 }
 
 /// Error Describing failure of a selection attempt, on any subset of inputs.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone, Copy)]
 pub enum SelectionError {
     InsufficientFunds,
     NoSolutionFound,
+    NonPositiveFeeRate,
+    AbnormallyHighFeeRate,
 }
 
 /// Measures the efficiency of input selection in satoshis, helping evaluate algorithms based on current and long-term fee rates

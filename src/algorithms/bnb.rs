@@ -25,12 +25,12 @@ pub fn select_coin_bnb(
 
     let rng = &mut thread_rng();
 
-    let cost_per_input = calculate_fee(options.avg_input_weight, options.target_feerate);
-    let cost_per_output = calculate_fee(options.avg_output_weight, options.target_feerate);
+    let cost_per_input = calculate_fee(options.avg_input_weight, options.target_feerate)?;
+    let cost_per_output = calculate_fee(options.avg_output_weight, options.target_feerate)?;
 
     let match_parameters = MatchParameters {
         target_for_match: options.target_value
-            + calculate_fee(options.base_weight, options.target_feerate),
+            + calculate_fee(options.base_weight, options.target_feerate)?,
         match_range: cost_per_input + cost_per_output,
         target_feerate: options.target_feerate,
     };
@@ -106,7 +106,8 @@ fn bnb(
             + effective_value(
                 inputs_in_desc_value[depth].1,
                 match_parameters.target_feerate,
-            );
+            )
+            .unwrap_or_default();
         selected_inputs.push(inputs_in_desc_value[depth].0);
         let with_this = bnb(
             inputs_in_desc_value,
@@ -148,7 +149,8 @@ fn bnb(
                     + effective_value(
                         inputs_in_desc_value[depth].1,
                         match_parameters.target_feerate,
-                    );
+                    )
+                    .unwrap_or_default();
                 selected_inputs.push(inputs_in_desc_value[depth].0);
                 let with_this = bnb(
                     inputs_in_desc_value,

@@ -14,7 +14,7 @@ pub fn select_coin_knapsack(
 ) -> Result<SelectionOutput, SelectionError> {
     let adjusted_target = options.target_value
         + options.min_change_value
-        + calculate_fee(options.base_weight, options.target_feerate);
+        + calculate_fee(options.base_weight, options.target_feerate).unwrap_or_default();
     let mut smaller_coins = inputs
         .iter()
         .enumerate()
@@ -27,8 +27,11 @@ pub fn select_coin_knapsack(
             )
         })
         .collect::<Vec<_>>();
-    smaller_coins.sort_by_key(|&(_, value, _)| Reverse(value));
-
+    smaller_coins.sort_by_key(|(_, value, _)| Reverse(*value));
+    let smaller_coins: Vec<_> = smaller_coins
+        .into_iter()
+        .filter_map(|(index, value, weight)| value.ok().map(|v| (index, v, weight)))
+        .collect();
     knap_sack(adjusted_target, &smaller_coins, options)
 }
 
@@ -59,7 +62,7 @@ fn knap_sack(
                             options,
                             accumulated_value,
                             accumulated_weight,
-                            estimated_fees,
+                            estimated_fees?,
                         );
                         return Ok(SelectionOutput {
                             selected_inputs: index_vector,
@@ -85,7 +88,7 @@ fn knap_sack(
         let best_set_weight = calculate_accumulated_weight(smaller_coins, &best_set);
         let estimated_fees = calculate_fee(best_set_weight, options.target_feerate);
         let index_vector: Vec<usize> = best_set.into_iter().collect();
-        let waste: u64 = calculate_waste(options, best_set_value, best_set_weight, estimated_fees);
+        let waste: u64 = calculate_waste(options, best_set_value, best_set_weight, estimated_fees?);
         Ok(SelectionOutput {
             selected_inputs: index_vector,
             waste: WasteMetric(waste),
@@ -110,8 +113,9 @@ mod test {
     fn knapsack_setup_options(adjusted_target: u64, target_feerate: f32) -> CoinSelectionOpt {
         let min_change_value = 500;
         let base_weight = 10;
-        let target_value =
-            adjusted_target - min_change_value - calculate_fee(base_weight, target_feerate);
+        let target_value = adjusted_target
+            - min_change_value
+            - calculate_fee(base_weight, target_feerate).unwrap_or_default();
         CoinSelectionOpt {
             target_value,
             target_feerate, // Simplified feerate
@@ -136,7 +140,7 @@ mod test {
         for (i, j) in value.into_iter().zip(weights.into_iter()) {
             // input value = effective value + fees
             // Example If we want our input to be equal to 1 CENT while being considered by knapsack(effective value), we have to increase the input by the fees to beginwith
-            let k = i.saturating_add(calculate_fee(j, target_feerate));
+            let k = i.saturating_add(calculate_fee(j, target_feerate).unwrap_or_default());
             inputs.push(OutputGroup {
                 value: k,
                 weight: j,
@@ -156,7 +160,7 @@ mod test {
         for (i, j) in value.into_iter().zip(weights.into_iter()) {
             // input value = effective value + fees
             // Example If we want our input to be equal to 1 CENT while being considered by knapsack(effective value), we have to increase the input by the fees to beginwith
-            let k = i.saturating_add(calculate_fee(j, target_feerate));
+            let k = i.saturating_add(calculate_fee(j, target_feerate).unwrap_or_default());
             inputs.push(OutputGroup {
                 value: k,
                 weight: j,
