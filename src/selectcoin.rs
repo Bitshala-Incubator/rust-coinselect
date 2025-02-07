@@ -264,6 +264,42 @@ mod test {
     }
 
     #[test]
+    fn test_select_coin_equals_fifo() {
+        // Helper function to create OutputGroups
+        fn create_fifo_inputs(values: Vec<u64>) -> Vec<OutputGroup> {
+            values
+                .into_iter()
+                .map(|value| OutputGroup {
+                    value,
+                    weight: 100,
+                    input_count: 1,
+                    creation_sequence: None,
+                })
+                .collect()
+        }
+
+        let options_case = CoinSelectionOpt {
+            target_value: 250000,
+            target_feerate: 1.0,
+            min_absolute_fee: 0,
+            base_weight: 100,
+            change_weight: 10,
+            change_cost: 20,
+            avg_input_weight: 10,
+            avg_output_weight: 10,
+            min_change_value: 400,
+            long_term_feerate: Some(0.5),
+            excess_strategy: ExcessStrategy::ToChange,
+        };
+
+        let inputs_case = create_fifo_inputs(vec![80000, 70000, 60000, 50000, 40000, 30000]);
+
+        let result_case = select_coin(&inputs_case, &options_case).unwrap();
+        let expected_case = vec![0, 1, 2, 3]; // Indexes of oldest UTXOs that sum to target
+        assert_eq!(result_case.selected_inputs, expected_case);
+    }
+
+    #[test]
     fn test_select_coin_equals_bnb() {
         let inputs = vec![
             OutputGroup {
