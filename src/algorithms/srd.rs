@@ -66,7 +66,7 @@ pub fn select_coin_srd(
 mod test {
 
     use crate::{
-        algorithms::{fifo::select_coin_fifo, srd::select_coin_srd},
+        algorithms::srd::select_coin_srd,
         types::{CoinSelectionOpt, ExcessStrategy, OutputGroup, SelectionError},
     };
 
@@ -148,7 +148,7 @@ mod test {
 
         inputs = setup_output_groups_withsequence();
         options = setup_options(500);
-        result = select_coin_fifo(&inputs, &options);
+        result = select_coin_srd(&inputs, &options);
         assert!(result.is_ok());
         selection_output = result.unwrap();
         assert!(!selection_output.selected_inputs.is_empty());
