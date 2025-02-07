@@ -1,5 +1,3 @@
-use std::u64;
-
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rust_coinselect::{
     algorithms::knapsack::select_coin_knapsack,
