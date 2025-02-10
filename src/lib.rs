@@ -1,5 +1,4 @@
 #![doc = include_str!("../README.md")]
-#![doc = include_str!("../README.md")]
 
 /// Collection of coin selection algorithms including Knapsack, Branch and Bound (BNB), First-In First-Out (FIFO), Single-Random-Draw (SRD), and Lowest Larger
 pub mod algorithms;

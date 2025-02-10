@@ -56,13 +56,16 @@ if let Ok(selection_output) = select_coin(&output_groups, &options) {
 ```
 
 The `convert_utxo_to_output` logic should be implemented by the user for the respective blockchain protocol.
-Note that we can group multiple utxos into a single [`OutputGroup`].
+Note that we can group multiple utxos into a single `OutputGroup`.
 
 Other characteristics of the library:
 
 - Well-documented code, helpful in understanding coin selection theory.
 - Minimal possible dependency footprint.
 - Minimal possible MSRV (Minimum Supported Rust Version).
+
+## Documentation
+For full API documentation, please visit [docs.rs/rust-coinselect](https://docs.rs/rust-coinselect)
 
 ## Community
 
@@ -71,3 +74,5 @@ The dev community gathers in a small corner of Discord [here](https://discord.gg
 Dev discussions predominantly happen via FOSS (Free and Open-Source Software) best practices, and by using GitHub as the Community Forum.
 
 The Issues, PRs, and Discussions are where all the heavy lifting happens.
+
+Contributions are welcome! Please feel free to submit a [Pull Request](https://github.com/Bitshala-Incubator/rust-coinselect/pulls).

@@ -6,7 +6,7 @@
 /// The library user must craft this structure correctly, as incorrect representation can lead to incorrect selection results.
 #[derive(Debug, Clone)]
 pub struct OutputGroup {
-    /// Total value of the UTXO(s) that this [`WeightedValue`] represents.
+    /// Total value of the UTXO(s) that this `WeightedValue` represents.
     pub value: u64,
     /// Total weight of including these UTXO(s) in the transaction.
     ///
