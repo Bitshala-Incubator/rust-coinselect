@@ -29,6 +29,7 @@ use rust_coinselect::{
 // List of the available UTXOs
 // let utxos: Vec<UTXO> = vec![<utxo1>, <utxo2>, ..., <utxon>];
 
+// UTXOs converted to OutputGroups
 let output_groups = vec![
     OutputGroup { value: 1_000_000, weight: 100, input_count: 1, creation_sequence: None },
     OutputGroup { value: 2_000_000, weight: 100, input_count: 1, creation_sequence: None },
@@ -48,9 +49,9 @@ let options = CoinSelectionOpt {
     excess_strategy: ExcessStrategy::ToChange,
 };
 
-    if let Ok(selection_output) = select_coin(&output_groups, &options) {
-        println!("Indexes of the selected utxos = {:?}", selection_output.selected_inputs);
-    }
+if let Ok(selection_output) = select_coin(&output_groups, &options) {
+    println!("Indexes of the selected utxos = {:?}", selection_output.selected_inputs);
+}
 
 ```
 
