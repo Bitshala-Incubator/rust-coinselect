@@ -21,27 +21,37 @@ Bitcoin specific example is given [here](./examples/bitcoin_crate/).
 An example usage is given below
 
 ```rust
-let utxos: Vec<UTXO> = vec![<utxo1>, <utxo2>, ..., <utxon>]; // List of the available UTXOs
-let output_groups: Vec<OutputGroup> = utxos.iter().map(|utxo| convert_utxo_to_output(utxo)).collect();
+use rust_coinselect::{
+    types::{CoinSelectionOpt, ExcessStrategy, OutputGroup},
+    selectcoin::select_coin,
+};
+
+// List of the available UTXOs
+// let utxos: Vec<UTXO> = vec![<utxo1>, <utxo2>, ..., <utxon>];
+
+let output_groups = vec![
+    OutputGroup { value: 1_000_000, weight: 100, input_count: 1, creation_sequence: None },
+    OutputGroup { value: 2_000_000, weight: 100, input_count: 1, creation_sequence: None },
+];
+
 let options = CoinSelectionOpt {
-    target_value: 4_000_000u64,
-    target_fee_rate: 0.5f32,
+    target_value: 1_500_000u64,
+    target_feerate: 0.5f32,
     long_term_feerate: Some(0.3f32),
     min_absolute_fee: 1000u64,
     base_weight: 72u64,
     change_weight: 18u64,
     change_cost: 250u64,
-    cost_per_input: 300u64,
-    cost_per_output: 250u64,
+    avg_input_weight: 300u64,
+    avg_output_weight: 250u64,
     min_change_value: 1_000u64,
     excess_strategy: ExcessStrategy::ToChange,
 };
 
-let selection_output = select_coin(&output_groups, options);
-println!("Estimated waste = {}", selection_output.waste);
-println!("Indexes of the selected utxos = {}", selection_output.selected_inputs);
+    if let Ok(selection_output) = select_coin(&output_groups, &options) {
+        println!("Indexes of the selected utxos = {:?}", selection_output.selected_inputs);
+    }
 
-let selected_utxos: Vec<UTXO> = selection_output.iter().map(|index| utxos[index]).collect();
 ```
 
 The `convert_utxo_to_output` logic should be implemented by the user for the respective blockchain protocol.
