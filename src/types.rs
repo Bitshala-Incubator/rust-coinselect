@@ -69,8 +69,18 @@ pub struct CoinSelectionOpt {
 /// Strategy to decide what to do with the excess amount.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExcessStrategy {
+    /// Adds the excess amount to the transaction fee. This increases the fee rate
+    /// and may lead to faster confirmation, but wastes the excess amount.
     ToFee,
+
+    /// Adds the excess amount to the recipient's output. This avoids creating a change
+    /// output and reduces transaction size, but may reveal information about the
+    /// wallet's available UTXOs.
     ToRecipient,
+
+    /// Creates a change output with the excess amount. This preserves privacy and
+    /// allows reuse of the excess amount in future transactions, but increases
+    /// transaction size and creates dust UTXOs if the amount is too small.
     ToChange,
 }
 

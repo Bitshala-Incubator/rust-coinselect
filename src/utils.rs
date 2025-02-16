@@ -49,11 +49,6 @@ pub fn calculate_accumulated_weight(
     accumulated_weight
 }
 
-// #[inline]
-// pub fn calculate_fee(weight: u64, rate: f32) -> u64 {
-//     (weight as f32 * rate).ceil() as u64
-// }
-
 impl fmt::Display for SelectionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -124,6 +119,15 @@ mod tests {
         }
     }
 
+    /// Tests the fee calculation function with various input scenarios.
+    /// Fee calculation is critical for coin selection as it determines the effective value
+    /// of each UTXO after accounting for the cost to spend it.
+    ///
+    /// Test vectors cover:
+    /// - Normal fee calculation with positive rate
+    /// - Error case with negative fee rate
+    /// - Error case with abnormally high fee rate (>1000 sat/vB)
+    /// - Edge case with zero fee rate
     #[test]
     fn test_calculate_fee() {
         struct TestVector {
@@ -169,6 +173,19 @@ mod tests {
         }
     }
 
+    /// Tests the effective value calculation which determines the actual spendable amount
+    /// of a UTXO after subtracting the fee required to spend it.
+    ///
+    /// Effective value is crucial for coin selection as it helps:
+    /// - Avoid selecting UTXOs that cost more in fees than their value
+    /// - Compare UTXOs based on their true spendable amount
+    /// - Calculate the actual amount available for spending
+    ///
+    /// Test vectors cover:
+    /// - Edge case where fees exceed UTXO value
+    /// - Normal case with positive effective value
+    /// - Error cases with invalid fee rates
+    /// - Large value UTXO calculations
     #[test]
     fn test_effective_value() {
         struct TestVector {
@@ -249,6 +266,19 @@ mod tests {
         }
     }
 
+    /// Tests the waste metric calculation which helps optimize coin selection.
+    /// Waste represents the cost of creating a change output plus any excess amount
+    /// that goes to fees or is added to recipient outputs.
+    ///
+    /// The waste metric considers:
+    /// - Long-term vs current fee rates
+    /// - Cost of creating change outputs
+    /// - Excess amounts based on selected strategy (fee/change/recipient)
+    ///
+    /// Test vectors cover:
+    /// - Change output creation (ToChange strategy)
+    /// - Fee payment (ToFee strategy)
+    /// - Insufficient funds scenario
     #[test]
     fn test_calculate_waste() {
         struct TestVector {
@@ -261,7 +291,7 @@ mod tests {
 
         let options = setup_options(100).clone();
         let test_vectors = [
-            // Test for excess srategy to drain(change output)
+            // Test for excess strategy to drain(change output)
             TestVector {
                 options: options.clone(),
                 accumulated_value: 1000,
@@ -269,7 +299,7 @@ mod tests {
                 estimated_fee: 20,
                 result: options.change_cost,
             },
-            // Test for excess srategy to miners
+            // Test for excess strategy to miners
             TestVector {
                 options: CoinSelectionOpt {
                     excess_strategy: ExcessStrategy::ToFee,
