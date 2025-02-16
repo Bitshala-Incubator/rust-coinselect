@@ -1,5 +1,7 @@
-use crate::types::{CoinSelectionOpt, EffectiveValue, ExcessStrategy, OutputGroup, Weight};
-use std::collections::HashSet;
+use crate::types::{
+    CoinSelectionOpt, EffectiveValue, ExcessStrategy, OutputGroup, SelectionError, Weight,
+};
+use std::{collections::HashSet, fmt};
 
 #[inline]
 pub fn calculate_waste(
@@ -20,7 +22,9 @@ pub fn calculate_waste(
     }
     if options.excess_strategy != ExcessStrategy::ToChange {
         // Change is not created if excess strategy is ToFee or ToRecipient. Hence cost of change is added
-        waste += accumulated_value - (options.target_value + estimated_fee);
+        waste += accumulated_value
+            .saturating_sub(options.target_value)
+            .saturating_sub(estimated_fee);
     } else {
         // Change is created if excess strategy is set to ToChange. Hence 'excess' should be set to 0
         waste += options.change_cost;
@@ -45,17 +49,43 @@ pub fn calculate_accumulated_weight(
     accumulated_weight
 }
 
+// #[inline]
+// pub fn calculate_fee(weight: u64, rate: f32) -> u64 {
+//     (weight as f32 * rate).ceil() as u64
+// }
+
+impl fmt::Display for SelectionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SelectionError::NonPositiveFeeRate => write!(f, "Negative fee rate"),
+            SelectionError::AbnormallyHighFeeRate => write!(f, "Abnormally high fee rate"),
+            SelectionError::InsufficientFunds => write!(f, "The Inputs funds are insufficient"),
+            SelectionError::NoSolutionFound => write!(f, "No solution could be derived"),
+        }
+    }
+}
+
+impl std::error::Error for SelectionError {}
+
+type Result<T> = std::result::Result<T, SelectionError>;
+
 #[inline]
-pub fn calculate_fee(weight: u64, rate: f32) -> u64 {
-    (weight as f32 * rate).ceil() as u64
+pub fn calculate_fee(weight: u64, rate: f32) -> Result<u64> {
+    if rate <= 0.0 {
+        Err(SelectionError::NonPositiveFeeRate)
+    } else if rate > 1000.0 {
+        Err(SelectionError::AbnormallyHighFeeRate)
+    } else {
+        Ok((weight as f32 * rate).ceil() as u64)
+    }
 }
 
 /// Returns the effective value of the `OutputGroup`, which is the actual value minus the estimated fee.
 #[inline]
-pub fn effective_value(output: &OutputGroup, feerate: f32) -> u64 {
-    output
+pub fn effective_value(output: &OutputGroup, feerate: f32) -> Result<u64> {
+    Ok(output
         .value
-        .saturating_sub(calculate_fee(output.weight, feerate))
+        .saturating_sub(calculate_fee(output.weight, feerate)?))
 }
 
 /// Returns the weights of data in transaction other than the list of inputs that would be selected.
@@ -71,4 +101,208 @@ pub fn calculate_base_weight_btc(output_weight: u64) -> u64 {
     // Total default: (16 + 2 + 4 + 4 + 1 + 16 = 43 WU + variable) WU
     // Source - https://docs.rs/bitcoin/latest/src/bitcoin/blockdata/transaction.rs.html#599-602
     output_weight + 43
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{CoinSelectionOpt, ExcessStrategy, OutputGroup, SelectionError};
+
+    fn setup_options(target_value: u64) -> CoinSelectionOpt {
+        CoinSelectionOpt {
+            target_value,
+            target_feerate: 0.4, // Simplified feerate
+            long_term_feerate: Some(0.4),
+            min_absolute_fee: 0,
+            base_weight: 10,
+            change_weight: 50,
+            change_cost: 10,
+            avg_input_weight: 20,
+            avg_output_weight: 10,
+            min_change_value: 500,
+            excess_strategy: ExcessStrategy::ToChange,
+        }
+    }
+
+    #[test]
+    fn test_calculate_fee() {
+        struct TestVector {
+            weight: u64,
+            fee: f32,
+            output: Result<u64>,
+        }
+
+        let test_vectors = [
+            TestVector {
+                weight: 60,
+                fee: 5.0,
+                output: Ok(300),
+            },
+            TestVector {
+                weight: 60,
+                fee: -5.0,
+                output: Err(SelectionError::NonPositiveFeeRate),
+            },
+            TestVector {
+                weight: 60,
+                fee: 1001.0,
+                output: Err(SelectionError::AbnormallyHighFeeRate),
+            },
+            TestVector {
+                weight: 60,
+                fee: 0.0,
+                output: Err(SelectionError::NonPositiveFeeRate),
+            },
+        ];
+
+        for vector in test_vectors {
+            let result = calculate_fee(vector.weight, vector.fee);
+            match result {
+                Ok(val) => {
+                    assert_eq!(val, vector.output.unwrap())
+                }
+                Err(err) => {
+                    let output = vector.output.err();
+                    assert_eq!(err, output.unwrap());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_effective_value() {
+        struct TestVector {
+            output: OutputGroup,
+            feerate: f32,
+            result: Result<u64>,
+        }
+
+        let test_vectors = [
+            // Value minus weight would be less Than Zero but will return zero because of saturating_subtraction for u64
+            TestVector {
+                output: OutputGroup {
+                    value: 100,
+                    weight: 101,
+                    input_count: 1,
+                    creation_sequence: None,
+                },
+                feerate: 1.0,
+                result: Ok(0),
+            },
+            // Value greater than zero
+            TestVector {
+                output: OutputGroup {
+                    value: 100,
+                    weight: 99,
+                    input_count: 1,
+                    creation_sequence: None,
+                },
+                feerate: 1.0,
+                result: Ok(1),
+            },
+            // Test negative fee rate return appropriate error
+            TestVector {
+                output: OutputGroup {
+                    value: 100,
+                    weight: 99,
+                    input_count: 1,
+                    creation_sequence: None,
+                },
+                feerate: -1.0,
+                result: Err(SelectionError::NonPositiveFeeRate),
+            },
+            // Test very high fee rate
+            TestVector {
+                output: OutputGroup {
+                    value: 100,
+                    weight: 99,
+                    input_count: 1,
+                    creation_sequence: None,
+                },
+                feerate: 2000.0,
+                result: Err(SelectionError::AbnormallyHighFeeRate),
+            },
+            // Test high value
+            TestVector {
+                output: OutputGroup {
+                    value: 100_000_000_000,
+                    weight: 10,
+                    input_count: 1,
+                    creation_sequence: None,
+                },
+                feerate: 1.0,
+                result: Ok(99_999_999_990),
+            },
+        ];
+
+        for vector in test_vectors {
+            let effective_value = effective_value(&vector.output, vector.feerate);
+
+            match effective_value {
+                Ok(val) => {
+                    assert_eq!(Ok(val), vector.result)
+                }
+                Err(err) => {
+                    assert_eq!(err, vector.result.unwrap_err());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_calculate_waste() {
+        struct TestVector {
+            options: CoinSelectionOpt,
+            accumulated_value: u64,
+            accumulated_weight: u64,
+            estimated_fee: u64,
+            result: u64,
+        }
+
+        let options = setup_options(100).clone();
+        let test_vectors = [
+            // Test for excess srategy to drain(change output)
+            TestVector {
+                options: options.clone(),
+                accumulated_value: 1000,
+                accumulated_weight: 50,
+                estimated_fee: 20,
+                result: options.change_cost,
+            },
+            // Test for excess srategy to miners
+            TestVector {
+                options: CoinSelectionOpt {
+                    excess_strategy: ExcessStrategy::ToFee,
+                    ..options
+                },
+                accumulated_value: 1000,
+                accumulated_weight: 50,
+                estimated_fee: 20,
+                result: 880,
+            },
+            // Test accumulated_value minus target_value < 0
+            TestVector {
+                options: CoinSelectionOpt {
+                    target_value: 1000,
+                    excess_strategy: ExcessStrategy::ToFee,
+                    ..options
+                },
+                accumulated_value: 200,
+                accumulated_weight: 50,
+                estimated_fee: 20,
+                result: 0,
+            },
+        ];
+
+        for vector in test_vectors {
+            let waste = calculate_waste(
+                &vector.options,
+                vector.accumulated_value,
+                vector.accumulated_weight,
+                vector.estimated_fee,
+            );
+
+            assert_eq!(waste, vector.result)
+        }
+    }
 }

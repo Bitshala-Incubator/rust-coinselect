@@ -20,13 +20,14 @@ pub fn select_coin_lowestlarger(
     sorted_inputs.sort_by_key(|(_, input)| effective_value(input, options.target_feerate));
 
     let index = sorted_inputs.partition_point(|(_, input)| {
-        input.value <= (target + calculate_fee(input.weight, options.target_feerate))
+        input.value
+            <= (target + calculate_fee(input.weight, options.target_feerate).unwrap_or_default())
     });
 
     for (idx, input) in sorted_inputs.iter().take(index).rev() {
         accumulated_value += input.value;
         accumulated_weight += input.weight;
-        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
+        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate)?;
         selected_inputs.push(*idx);
 
         if accumulated_value >= (target + estimated_fees.max(options.min_absolute_fee)) {
@@ -38,7 +39,7 @@ pub fn select_coin_lowestlarger(
         for (idx, input) in sorted_inputs.iter().skip(index) {
             accumulated_value += input.value;
             accumulated_weight += input.weight;
-            estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
+            estimated_fees = calculate_fee(accumulated_weight, options.target_feerate)?;
             selected_inputs.push(*idx);
 
             if accumulated_value >= (target + estimated_fees.max(options.min_absolute_fee)) {

@@ -33,7 +33,8 @@ pub fn select_coin_fifo(
     sorted_inputs.extend(inputs_without_sequence);
 
     for (index, inputs) in sorted_inputs {
-        estimated_fees = calculate_fee(accumulated_weight, options.target_feerate);
+        estimated_fees =
+            calculate_fee(accumulated_weight, options.target_feerate).unwrap_or_default();
         if accumulated_value
             >= (options.target_value
                 + estimated_fees.max(options.min_absolute_fee)
