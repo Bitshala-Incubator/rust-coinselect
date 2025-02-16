@@ -31,7 +31,7 @@ pub fn select_coin_srd(
         accumulated_weight += input.weight;
         _input_counts += input.input_count;
 
-        estimated_fee = calculate_fee(accumulated_weight, options.target_feerate);
+        estimated_fee = calculate_fee(accumulated_weight, options.target_feerate)?;
 
         if accumulated_value
             >= options.target_value
